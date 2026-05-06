@@ -1,0 +1,11 @@
+# Secrets
+agent/auth.json
+
+# Session data
+agent/sessions/
+
+# Binaries
+agent/bin/
+
+# Extensions (user-specific)
+agent/extensions/
