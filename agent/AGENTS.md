@@ -15,17 +15,18 @@ Your FIRST actions in every new session, before responding to my request:
 
 1. Read these files in order (skip ones that don't exist — don't error):
    - `~/.pi/agent/STANDARDS.md` — default acceptance gates and capability mapping
-   - Nearest `AGENTS.md` walking up from cwd (project preamble + overrides)
-   - `<project>/STANDARDS.md` — project-specific gates (overrides global)
-   - `<project>/VISION.md` — what this app is, who it's for, what problem it solves
-   - `<project>/LANGUAGE.md` — domain glossary; use these terms exactly
-   - `<project>/PROGRESS.md` — recent session summaries, where work left off
+   - `~/.pi/agent/LESSONS.md` — cross-project danger zones, gotchas, anti-patterns (skip if absent)
+   - Nearest `AGENTS.md` walking up from cwd (project preamble + overrides; absent in most projects — global AGENTS.md applies)
+   - `<project>/STANDARDS.md` — project-specific gates (overrides global; skip if absent)
+   - `<project>/VISION.md` — what this app is, who it's for, what problem it solves; includes domain glossary
+   - `<project>/PROGRESS.md` — recent session summaries (read last 50 lines only; enough for 3-4 sessions)
    - `<project>/LESSONS.md` — danger zones, gotchas, prior decisions
 2. Run `git log --oneline -20` for cross-session context.
-3. In one short paragraph, report which files were present, which were missing, and confirm context is loaded.
-4. THEN respond to my actual request.
+3. If branch tracking is enabled (project AGENTS.md contains `branch_tracking: true`), check current branch. If on main/master, report: "On main. Branch tracking is on — I'll prompt for a feature branch per the branch-before-code rule." Do NOT branch yet — wait for the first substantive edit.
+4. Report context loaded: list which of the above files were present (one line). Don't enumerate missing files — they're expected to be absent in most projects.
+5. THEN respond to my actual request.
 
-Do not skip step 3. The brief context report tells me you've actually loaded the protocol files rather than relying on memory of past sessions.
+Do not skip step 4. The brief context report tells me you've actually loaded the protocol files rather than relying on memory of past sessions.
 
 **Carve-out**: if my first message is a trivial conversational question (e.g., "hey", "are you there", a one-line clarification), skip the protocol — only run it on substantive work requests where context matters.
 
@@ -42,6 +43,8 @@ Do not skip step 3. The brief context report tells me you've actually loaded the
 ## Operating principles
 
 **Think Before Coding** — surface assumptions before implementing. State what you believe the current state is, what I'm asking for, and what could go wrong. Wait for confirmation on non-trivial changes.
+
+**Branch-before-code:** When branch tracking is enabled for a project (project AGENTS.md `branch_tracking: true`) and you're on main/master, do not Write/Edit files under `src/`, `lib/`, or `app/` (or the project's primary source directory) without first creating a feature branch via `/skill:branch` Phase A. Files under `docs/`, `config/`, `*.md`, and project-root config files are exempt. This is opt-in protection — not a wall.
 
 **Simplicity First** — choose the simplest solution that solves the stated problem. No speculative features, no premature abstraction. If a simpler approach exists, use it.
 
@@ -95,15 +98,17 @@ Skip the recap for short conversational replies and quick clarifications.
 **Global** (`~/.pi/agent/`):
 - `AGENTS.md` — this file
 - `STANDARDS.md` — default gates + capability mapping
+- `LESSONS.md` — cross-project gotchas, danger zones, anti-patterns
 - `skills/` — global skills, invocable as `/skill:name`
 
 **Per project** (`<project>/`):
-- `AGENTS.md` — project preamble overrides
-- `STANDARDS.md` — project gate overrides
+- `AGENTS.md` — project preamble overrides (create only when overriding global defaults)
+- `STANDARDS.md` — project gate overrides (create only when overriding global defaults)
 - `VISION.md` — what the app is
-- `LANGUAGE.md` — domain glossary
+- `LANGUAGE.md` — domain glossary (legacy; glossary now in VISION.md)
 - `PLAN.md` — current phase and approach
 - `TASKS.md` — task list with checkboxes
 - `PROGRESS.md` — rolling session summaries
 - `LESSONS.md` — danger zones, gotchas, mock maps
 - `.agent/tasks/T-XXX/` — per-task contracts and artifacts (once contract-gen is active)
+- `.agent/archive/` — historical PLAN.md snapshots archived on merge/PR success

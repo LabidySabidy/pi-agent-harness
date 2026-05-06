@@ -41,6 +41,13 @@ Things that need an answer before or during implementation:
 - <question>
 - <question>
 
+## References
+
+Links to design artifacts that informed this plan:
+
+- `.agent/grill/<topic>.md` — design interrogation (if grill was run)
+- `<any other reference>`
+
 ## Current step
 
 <what's actively being worked on right now, or "not started">

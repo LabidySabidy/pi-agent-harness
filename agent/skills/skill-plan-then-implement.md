@@ -31,7 +31,7 @@ Codify the workflow that worked for the CSV export task: read codebase → write
 ### Step 1 — Read the codebase
 - Identify which files are likely to change
 - Read those files plus their tests
-- Read VISION.md, LANGUAGE.md, LESSONS.md if they exist
+- Read VISION.md, LESSONS.md if they exist
 - Check `git log --oneline -20` for recent context
 
 ### Step 2 — Write PLAN.md
@@ -43,6 +43,8 @@ Use the template at `~/.pi/agent/templates/PLAN.md`. Populate:
 - **Acceptance criteria**: verifiable checkboxes
 - **Not in scope**: explicit exclusions
 - **Open questions**: anything blocking
+
+If grill was invoked during this session and produced a file (`.agent/grill/<topic>.md`), include a link to it in the **References** section. The link makes grill → PLAN.md traceability work in both directions.
 
 Show me the plan. Before asking for approval, I check for grill triggers (see below).
 
@@ -61,6 +63,8 @@ After you've seen the plan, I check: does this plan hit any of these complexity 
 After grill (if triggered), we return to ask for your approval on the possibly-refined plan.
 
 ### Step 3 — Add tasks to TASKS.md
+**Branch tracking:** If enabled for this project (project AGENTS.md `branch_tracking: true`), invoke `/skill:branch` (Phase A) to create a feature branch before executing any implementation tasks.
+
 Each phase becomes one or more T-NNN tasks. Use monotonically increasing IDs that don't collide with existing tasks. For every task, populate `Done when:` with a testable criterion (a command that passes, an endpoint that returns a specific response, a visible UI state). `Estimate:` is optional — only include it when the effort is genuinely uncertain.
 
 ### Step 4 — Execute phase by phase

@@ -102,7 +102,7 @@ After the dialog, produce a structured summary saved to `.agent/grill/<short-top
 Yes / No / Need more info on <thing>
 ```
 
-If skill-plan-then-implement loads next, it should reference this file.
+If skill-plan-then-implement loads next, it should reference this file in PLAN.md's **References** section. Link both ways — grill records are findable from PLAN.md, and PLAN.md is traceable back to the grill session that informed it.
 
 ## Anti-patterns
 

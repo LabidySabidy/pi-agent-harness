@@ -24,5 +24,25 @@
 ## Current phase
 <v0/v1/v2 or whatever stage you're in, plus a sentence on what defines this phase>
 
+## Architecture
+> High-level component map. Update when components are added, removed, or their relationships change.
+
+**Components:**
+- `<Component>` — `<one-line responsibility>`
+
+**Data flow:** `<e.g., CLI → transcript fetcher → 3 LLM passes → PDF renderer → output file>`
+
+**Key tech choices:** `<e.g., Python 3.11+, DeepSeek via OpenAI SDK, Playwright for PDF>`
+
 ## Constraints worth knowing
 <external constraints that shape decisions: regulatory, budget, time, deploy target, etc.>
+
+## Domain glossary
+> Use these terms exactly. Avoid synonyms or paraphrasing in code, comments, UI, docs, or chat.
+> Add new terms as they emerge — keep this section small, only terms that cause confusion if misnamed.
+
+| Term | Definition |
+|---|---|
+| <Term> | <one-sentence definition> |
+
+**Avoided terms:** <e.g., don't say "client" — say "property owner">
