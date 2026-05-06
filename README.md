@@ -75,13 +75,13 @@ All skills live at `~/.pi/agent/skills/`. Invoke explicitly (`/skill:name`) or l
 
 | Skill | Triggers | What it does |
 |---|---|---|
-| [scaffold](skills/skill-scaffold.md) | `scaffold`, `bootstrap`, `new project` | Triage → discovery → VISION.md, PLAN.md, TASKS.md, PROGRESS.md |
-| [spike](skills/skill-spike.md) | `spike`, `prototype`, `can this even work` | 15-minute throwaway script for one risky assumption |
-| [grill](skills/skill-grill.md) | `grill me`, `poke holes`, `red team` | 8-dimension adversarial design review → `.agent/grill/` |
-| [plan-then-implement](skills/skill-plan-then-implement.md) | `build this`, `implement this` | Read → PLAN.md → TASKS.md → TDD per phase → gates |
-| [investigate-bug](skills/skill-investigate-bug.md) | `investigate`, `debug`, `why is this failing` | 8-step defect investigation → root cause → fix plan |
-| [branch-hygiene](skills/skill-branch-hygiene.md) | `branch`, `create PR`, `ship it` | Phase A: create `feat/*` branch. Phase B: push PR / merge / discard. Cleanup stale branches. |
-| [promote-lessons](skills/skill-promote-lessons.md) | `promote lessons`, `review pending` | One-at-a-time review of `.agent/lessons-pending.md` → LESSONS.md |
+| [scaffold](agent/skills/skill-scaffold.md) | `scaffold`, `bootstrap`, `new project` | Triage → discovery → VISION.md, PLAN.md, TASKS.md, PROGRESS.md |
+| [spike](agent/skills/skill-spike.md) | `spike`, `prototype`, `can this even work` | 15-minute throwaway script for one risky assumption |
+| [grill](agent/skills/skill-grill.md) | `grill me`, `poke holes`, `red team` | 8-dimension adversarial design review → `.agent/grill/` |
+| [plan-then-implement](agent/skills/skill-plan-then-implement.md) | `build this`, `implement this` | Read → PLAN.md → TASKS.md → TDD per phase → gates |
+| [investigate-bug](agent/skills/skill-investigate-bug.md) | `investigate`, `debug`, `why is this failing` | 8-step defect investigation → root cause → fix plan |
+| [branch-hygiene](agent/skills/skill-branch-hygiene.md) | `branch`, `create PR`, `ship it` | Phase A: create `feat/*` branch. Phase B: push PR / merge / discard. Cleanup stale branches. |
+| [promote-lessons](agent/skills/skill-promote-lessons.md) | `promote lessons`, `review pending` | One-at-a-time review of `.agent/lessons-pending.md` → LESSONS.md |
 
 ### When to use which
 
@@ -101,29 +101,18 @@ Pending lessons piling up?      → /skill:promote-lessons
 
 Project files persist across sessions. The agent reads them at startup, writes during and after each session.
 
-```mermaid
-flowchart TD
-    subgraph Start["Session start (reads)"]
-        GLOBAL["~/.pi/agent/<br/>STANDARDS.md<br/>LESSONS.md<br/>AGENTS.md"]
-        PROJECT["<project>/<br/>VISION.md<br/>PROGRESS.md<br/>LESSONS.md"]
-    end
+### What writes what, and when
 
-    subgraph During["During session (writes)"]
-        EP["extract-patterns"] -->|"agent_end"| PENDING[".agent/lessons-pending.md"]
-        SS["session-summary"] -->|"agent_end"| PROGRESS["PROGRESS.md<br/>(rolling entry)"]
-        GRILL_OUT["grill"] -->|"design doc"| GRILL_DIR[".agent/grill/"]
-        PLAN_OUT["plan-then-implement"] -->|"plan"| PLAN_MD["PLAN.md"]
-        PLAN_OUT -->|"tasks"| TASKS["TASKS.md"]
-        PROMOTE_OUT["promote-lessons"] -->|"accept"| LESSONS["LESSONS.md"]
-        PROMOTE_OUT -->|"global"| GLOBAL_LESSONS["~/.pi/agent/LESSONS.md"]
-    end
-
-    subgraph End["Session end / merge"]
-        BRANCH_OUT["branch-hygiene"] -->|"archive"| ARCHIVE[".agent/archive/<br/>PLAN.md + TASKS.md"]
-        SS -->|"finalize"| PROGRESS
-        EP -->|"final sweep"| PENDING
-    end
-```
+| When | Writer | Output |
+|---|---|---|
+| Every turn | `extract-patterns` | `.agent/lessons-pending.md` |
+| Every turn | `session-summary` | `PROGRESS.md` (rolling entry) |
+| Manual | `grill` | `.agent/grill/<topic>.md` |
+| Manual | `plan-then-implement` | `PLAN.md`, `TASKS.md` |
+| Manual | `promote-lessons` | `LESSONS.md` |
+| Merge | `branch-hygiene` | `.agent/archive/` (copies of PLAN.md + TASKS.md) |
+| Shutdown | `session-summary` | `PROGRESS.md` (finalized) |
+| Shutdown | `extract-patterns` | `.agent/lessons-pending.md` (final sweep) |
 
 | File | Location | Purpose |
 |---|---|---|
