@@ -5,76 +5,52 @@
 ## Architecture
 
 ```mermaid
-flowchart TB
-    subgraph User["🧑 User"]
-        MSG["message or /skill:name"]
-    end
+flowchart LR
+    USER["user message"] --> ROUTE{"classifier-router"}
 
-    subgraph CR["classifier-router extension"]
-        ROUTE{"classify intent"}
-    end
+    ROUTE -->|"build"| PLAN["plan-then-implement"]
+    ROUTE -->|"debug"| BUG["investigate-bug"]
+    ROUTE -->|"new project"| SCAFFOLD["scaffold"]
+    ROUTE -->|"validate"| SPIKE["spike"]
+    ROUTE -->|"design"| GRILL["grill"]
+    ROUTE -->|"branch / PR"| BRANCH["branch-hygiene"]
+    ROUTE -->|"review"| PROMOTE["promote-lessons"]
 
-    subgraph Skills["Skills Layer"]
-        direction LR
-        SCAFFOLD["scaffold<br/>new project bootstrap"]
-        SPIKE["spike<br/>feasibility validation"]
-        GRILL["grill<br/>design interrogation"]
-        PLAN["plan-then-implement<br/>feature workflow"]
-        BUG["investigate-bug<br/>defect diagnosis"]
-        BRANCH["branch-hygiene<br/>git traceability"]
-        PROMOTE["promote-lessons<br/>pending review"]
-    end
-
-    subgraph Extensions["Extensions Layer"]
-        SS["session-summary<br/>auto-update PROGRESS.md"]
-        EP["extract-patterns<br/>auto-capture lessons"]
-    end
-
-    subgraph Memory["Memory Layer"]
-        direction LR
-        VISION["VISION.md<br/>app identity"]
-        PLAN_MD["PLAN.md<br/>current plan"]
-        TASKS["TASKS.md<br/>task list"]
-        LESSONS["LESSONS.md<br/>project gotchas"]
-        PROGRESS["PROGRESS.md<br/>session summaries"]
-        GRILL_DIR[".agent/grill/<br/>design concepts"]
-        ARCHIVE[".agent/archive/<br/>historical plans"]
-    end
-
-    subgraph Global["Global Layer (~/.pi/agent/)"]
-        AGENTS["AGENTS.md<br/>preamble + protocol"]
-        STANDARDS["STANDARDS.md<br/>gates + models"]
-        GLOBAL_LESSONS["LESSONS.md<br/>cross-project patterns"]
-    end
-
-    MSG --> ROUTE
-    ROUTE -->|"build / implement"| PLAN
-    ROUTE -->|"debug / broken"| BUG
-    ROUTE -->|"design / grill me"| GRILL
-    ROUTE -->|"new project"| SCAFFOLD
-    ROUTE -->|"validate / spike"| SPIKE
-    ROUTE -->|"branch / PR / ship"| BRANCH
-    ROUTE -->|"review lessons"| PROMOTE
-
-    PLAN -->|"triggers grill if complex"| GRILL
-    GRILL -->|"writes .agent/grill/ topic"| GRILL_DIR
-    GRILL_DIR -->|"linked from"| PLAN_MD
-    PLAN -->|"populates"| PLAN_MD
-    PLAN -->|"populates"| TASKS
-    PLAN -->|"invokes Phase A"| BRANCH
-    BRANCH -->|"archives on merge"| ARCHIVE
-    BRANCH -->|"archives"| PLAN_MD
-    BRANCH -->|"archives"| TASKS
-
-    EP -->|"writes candidates"| PROMOTE
-    PROMOTE -->|"promotes to"| LESSONS
-    PROMOTE -->|"promotes to"| GLOBAL_LESSONS
-    SS -->|"updates"| PROGRESS
-
-    AGENTS --> Memory
-    STANDARDS --> Memory
-    GLOBAL_LESSONS --> Memory
+    SCAFFOLD -->|"hands off to"| PLAN
+    PLAN -->|"complex → triggers"| GRILL
+    GRILL -->|"design doc linked from"| PLAN
+    PLAN -->|"creates feature branch"| BRANCH
+    BRANCH -->|"archives on merge"| PLAN
+    SPIKE -->|"learnings feed into"| PLAN
 ```
+
+**How skills compose.** The classifier-router inspects every message and routes to exactly one skill. Skills invoke each other at integration points — plan-then-implement triggers grill for complex plans, delegates branch creation to branch-hygiene, and references grill design docs. Spike feeds feasibility learnings into the upcoming plan.
+
+```mermaid
+flowchart TD
+    subgraph Start["Session start (reads)"]
+        GLOBAL["~/.pi/agent/<br/>STANDARDS.md<br/>LESSONS.md<br/>AGENTS.md"]
+        PROJECT["<project>/<br/>VISION.md<br/>PROGRESS.md<br/>LESSONS.md"]
+    end
+
+    subgraph During["During session (writes)"]
+        EP["extract-patterns"] -->|"agent_end"| PENDING[".agent/lessons-pending.md"]
+        SS["session-summary"] -->|"agent_end"| PROGRESS["PROGRESS.md<br/>(rolling entry)"]
+        GRILL_OUT["grill"] -->|"design doc"| GRILL_DIR[".agent/grill/"]
+        PLAN_OUT["plan-then-implement"] -->|"plan"| PLAN_MD["PLAN.md"]
+        PLAN_OUT -->|"tasks"| TASKS["TASKS.md"]
+        PROMOTE_OUT["promote-lessons"] -->|"accept"| LESSONS["LESSONS.md"]
+        PROMOTE_OUT -->|"global"| GLOBAL_LESSONS["~/.pi/agent/LESSONS.md"]
+    end
+
+    subgraph End["Session end / merge"]
+        BRANCH_OUT["branch-hygiene"] -->|"archive"| ARCHIVE[".agent/archive/<br/>PLAN.md + TASKS.md"]
+        SS -->|"finalize"| PROGRESS
+        EP -->|"final sweep"| PENDING
+    end
+```
+
+**What writes where, and when.** Extensions and skills produce artifacts in three phases. Session start reads global + project memory. During the session, extensions fire on every turn (`agent_end`) and skills write on explicit invocation. Session end finalizes rolling entries and archives completed work.
 
 ## How it works
 
