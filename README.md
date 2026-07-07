@@ -141,9 +141,11 @@ Every session starts by loading protocol files into context. This table reflects
 | AGENTS.md (global) | ~7,928 | ~1,982 |
 | STANDARDS.md (global) | ~3,717 | ~929 |
 | LESSONS.md (global) | ~3,112 | ~778 |
-| PROGRESS.md (windowed: first 50 lines / ~5 entries) | varies | ~400 |
+| PROGRESS.md (windowed: first 50 lines) | ~102 | ~25 |
 | git log -20 | ~800 | ~200 |
-| **Total** | **~15,557** | **~4,289** |
+| **Total** | **~12,559** | **~3,914** |
+
+PROGRESS.md's first 50 lines are currently 102 chars due to a ~94-line blank gap between the header and first entry — a formatting artifact. When entries sit directly below the header, expect ~2,000 chars / ~500 tokens. The PROGRESS-windowing win is structural: 108 entries on disk, constant ~5 entries loaded at boot regardless of file growth.
 
 Plus project-level files when present (project AGENTS.md, STANDARDS.md, VISION.md, PROGRESS.md, LESSONS.md). Project PROGRESS.md is also windowed to 5 entries.
 
