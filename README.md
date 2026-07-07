@@ -155,7 +155,7 @@ Three TypeScript modules in `~/.pi/agent/extensions/` hook into Pi's event syste
 
 | Extension | Hooks | What it does |
 |---|---|---|
-| **classifier-router** | `before_agent_start` | Classifies user messages via DeepSeek → routes to the right skill |
+| **classifier-router** | `input` | Classifies user messages via DeepSeek → routes to the right skill |
 | **session-summary** | `agent_end`, `session_start`, `session_shutdown` | Maintains a rolling PROGRESS.md entry; auto-finalizes on shutdown |
 | **extract-patterns** | `agent_end`, `session_shutdown` | Scans new assistant messages for lesson candidates; incremental via `.agent/.extract-state.json` |
 
@@ -183,7 +183,7 @@ Three TypeScript modules in `~/.pi/agent/extensions/` hook into Pi's event syste
 │   └── extract-patterns/
 └── templates/                       # File templates for scaffold
     ├── VISION.md, PLAN.md, TASKS.md, PROGRESS.md
-    └── LESSONS.md, LANGUAGE.md (legacy)
+    └── LESSONS.md
 
 <project>/                           # Per-project memory
 ├── VISION.md                        # App identity + glossary + architecture
@@ -193,7 +193,7 @@ Three TypeScript modules in `~/.pi/agent/extensions/` hook into Pi's event syste
 ├── PROGRESS.md                      # Session summaries
 └── .agent/                          # System data
     ├── lessons-pending.md
-    ├── extract-state.json
+    ├── .extract-state.json
     ├── grill/                       # Design interrogation
     └── archive/                     # Historical plans/tasks
 ```
