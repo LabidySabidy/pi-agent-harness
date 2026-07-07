@@ -121,7 +121,7 @@
 - [~] **T16.** Acceptance
   - [x] Dry-run clean (isolation-test proven)
   - [x] Full gated run completes (merge executed, intake declined — gate works both ways)
-  - [ ] Boot payload ≤ pre-run
+  - [ ] Boot payload ≤ pre-run (blocked — requires T16b: session-summary fix + pass 5 compaction of 847-line PROGRESS.md)
   - [ ] promote-lessons routes to gardening (verify after /reload)
   - Commit: `telemetry + lesson identity`
   Done when: All criteria pass.
@@ -182,7 +182,7 @@
 
 ## Phase 4.5 — CRLF cleanup (deferred to before Mac clone)
 
-- [ ] **T21.** Add `.gitattributes` with `* text=auto eol=lf`
+- [x] **T21.** Add `.gitattributes` with `* text=auto eol=lf`
   Done when: `.gitattributes` committed; `git add --renormalize .` shows no CRLF→LF churn on any tracked text file.
 
 ---

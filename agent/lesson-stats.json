@@ -1,8 +1,9 @@
 {
+  "$comment": "Hit counts reset 2026-07-07 — prior counts contaminated by meta-conversation during telemetry/system debugging. Real usage re-accumulates from clean ground.",
   "GL-001": {
-    "hits": 2,
-    "last_used": "2026-07-07T05:12:13.284Z",
-    "device_last_hit": "Kasim-PC",
+    "hits": 0,
+    "last_used": null,
+    "device_last_hit": null,
     "decay": 1,
     "confidence": 0.5,
     "added": "2026-07-06",
@@ -45,9 +46,9 @@
     "category": "Decisions made"
   },
   "GL-006": {
-    "hits": 26,
-    "last_used": "2026-07-07T05:57:29.523Z",
-    "device_last_hit": "Kasim-PC",
+    "hits": 0,
+    "last_used": null,
+    "device_last_hit": null,
     "decay": 1,
     "confidence": 0.5,
     "added": "2026-07-06",
@@ -64,9 +65,9 @@
   },
   "GL-008": {
     "merged-into": "GL-006",
-    "hits": 13,
-    "last_used": "2026-07-07T05:57:29.523Z",
-    "device_last_hit": "Kasim-PC",
+    "hits": 0,
+    "last_used": null,
+    "device_last_hit": null,
     "decay": 1,
     "confidence": 0.5,
     "added": "2026-07-06",
@@ -100,9 +101,9 @@
     "category": "Always do"
   },
   "GL-012": {
-    "hits": 14,
-    "last_used": "2026-07-07T05:57:29.523Z",
-    "device_last_hit": "Kasim-PC",
+    "hits": 0,
+    "last_used": null,
+    "device_last_hit": null,
     "decay": 1,
     "confidence": 0.5,
     "added": "2026-07-07T05:52:36.243Z",

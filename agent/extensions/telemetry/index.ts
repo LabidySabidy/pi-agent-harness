@@ -23,7 +23,7 @@
  *   harness.project                    harness.session_file
  */
 
-import type { ExtensionAPI, AgentEndEvent } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, AgentEndEvent, TurnEndEvent } from "@earendil-works/pi-coding-agent";
 import { promises as fs } from "node:fs";
 import { join, resolve } from "node:path";
 import * as os from "node:os";
@@ -56,8 +56,8 @@ const PROTOCOL_FILES: Array<{ name: string; path: string[] }> = [
 // Lesson citation regex: matches GL-001, L-042, etc.
 const LESSON_CITE_RE = /\b(GL|L)-(\d{3})\b/g;
 
-// Skill invocation regex: matches /skill:name patterns
-const SKILL_RE = /\/skill:(\S+)/g;
+// Skill invocation regex: matches /skill:name patterns (letters + hyphens only, excludes backticks/parens/commas)
+const SKILL_RE = /\/skill:([a-zA-Z][a-zA-Z0-9-]*)/g;
 
 // Gate detection patterns
 const GATE_PASS_RE = /\b(?:gates?\s*(?:pass(?:ing|ed)?|green|clean)|all\s+(?:checks?\s+)?pass)\b/i;
@@ -510,13 +510,16 @@ export default function telemetry(pi: ExtensionAPI) {
       projectDir = ctx.cwd;
       state = await readState(statePath);
 
-      // Journal recovery: finalize previous session if needed
-      if (state?.previousSessionId && state.previousSessionProject) {
+      // Journal recovery: finalize previous session if needed.
+      // Guard on currentSessionId (which IS the previous session from
+      // the perspective of this boot), not previousSessionId (which the
+      // first session always writes as null).
+      if (state?.currentSessionId && state.projectKey) {
         await recoverJournal(
           telemetryPath,
           statePath,
-          state.previousSessionId,
-          state.previousSessionProject,
+          state.currentSessionId,
+          state.projectKey,
         ).catch(() => {});
       }
 
@@ -560,8 +563,10 @@ export default function telemetry(pi: ExtensionAPI) {
     }
   });
 
-  // ── agent_end ────────────────────────────────────────────────────────
-  pi.on("agent_end", async (event: AgentEndEvent, ctx: any) => {
+  // ── turn_end ────────────────────────────────────────────────────────
+  // Primary per-turn telemetry. Fires after every LLM response + tool
+  // execution cycle, regardless of whether more turns follow.
+  pi.on("turn_end", async (event: TurnEndEvent, ctx: any) => {
     try {
       if (!state || !state.currentSessionId || !projectDir) return;
 
@@ -569,7 +574,7 @@ export default function telemetry(pi: ExtensionAPI) {
         await getTelemetryTarget(projectDir);
       if (!shouldWrite) return;
 
-      // Reload state (might have been modified by another hook)
+      // Reload state from disk (handles concurrent updates)
       const currentState = await readState(statePath);
       if (!currentState || currentState.currentSessionId !== sessionId) {
         // Session was replaced — reload state
@@ -577,54 +582,45 @@ export default function telemetry(pi: ExtensionAPI) {
         if (!state || !state.currentSessionId) return;
       }
 
-      const messages = event?.messages ?? [];
+      const msg = event.message as any;
+      if (!msg || msg.role !== "assistant") return;
 
-      // Extract text from new assistant messages for pattern scanning
-      let newText = "";
+      // ── Token usage ────────────────────────────────────────────────
+      const usage = msg.usage;
       let cumulativeInput = state.cumulative.inputTokens;
       let cumulativeOutput = state.cumulative.outputTokens;
       let cumulativeCacheRead = state.cumulative.cacheReadTokens;
       let cumulativeCacheWrite = state.cumulative.cacheWriteTokens;
-      const lessonIds = new Set(state.cumulative.lessonHits);
-      const skills = new Set(state.cumulative.skills);
+
+      if (usage) {
+        cumulativeInput += usage.input ?? 0;
+        cumulativeOutput += usage.output ?? 0;
+        cumulativeCacheRead += usage.cacheRead ?? 0;
+        cumulativeCacheWrite += usage.cacheWrite ?? 0;
+      }
+
+      // ── Model ──────────────────────────────────────────────────────
       const models = new Set(state.cumulative.models);
+      if (msg.model) models.add(msg.model);
+      const model = msg.model ?? ([...models].slice(-1)[0] ?? "unknown");
+
+      // ── Pattern scanning (citations / skills / gates) ──────────────
+      const rawText = extractMessageText(msg);
+
+      const lessonIds = new Set(state.cumulative.lessonHits);
+      for (const id of extractLessonCitations(rawText)) lessonIds.add(id);
+
+      const skills = new Set(state.cumulative.skills);
+      for (const skill of extractSkills(rawText)) skills.add(skill);
+
       let gateStatus = state.cumulative.gates;
+      const detectedGate = detectGates(rawText);
+      if (detectedGate !== "unknown") gateStatus = detectedGate;
 
-      for (const msg of messages) {
-        // Extract usage from assistant messages
-        const role = (msg as any).role;
-        if (role === "assistant") {
-          const usage = (msg as any).usage;
-          if (usage) {
-            cumulativeInput += usage.input ?? 0;
-            cumulativeOutput += usage.output ?? 0;
-            cumulativeCacheRead += usage.cacheRead ?? 0;
-            cumulativeCacheWrite += usage.cacheWrite ?? 0;
-          }
-          const model = (msg as any).model;
-          if (model) models.add(model);
+      // ── Turn index ─────────────────────────────────────────────────
+      const turnIndex = (event.turnIndex ?? state.cumulative.turnIndex) + 1;
 
-          const text = extractMessageText(msg as any);
-          newText += text + "\n";
-        }
-      }
-
-      // Scan new text for patterns
-      for (const id of extractLessonCitations(newText)) {
-        lessonIds.add(id);
-      }
-      for (const skill of extractSkills(newText)) {
-        skills.add(skill);
-      }
-      const detectedGate = detectGates(newText);
-      if (detectedGate !== "unknown") {
-        gateStatus = detectedGate;
-      }
-
-      const turnIndex = state.cumulative.turnIndex + 1;
-
-      const model = models.size > 0 ? [...models].slice(-1)[0] : "unknown";
-
+      // ── Write running record ───────────────────────────────────────
       const record: RunningRecord = {
         type: "running",
         ts: isoNow(),
@@ -661,6 +657,112 @@ export default function telemetry(pi: ExtensionAPI) {
       await appendLine(telemetryPath, JSON.stringify(record));
 
       // Update lesson stats
+      await updateLessonStats([...lessonIds], projectDir).catch(() => {});
+    } catch (err) {
+      if (projectDir) {
+        await logError(
+          projectDir,
+          `turn_end: ${err instanceof Error ? err.message : String(err)}`,
+        ).catch(() => {});
+      }
+    }
+  });
+
+  // ── agent_end ────────────────────────────────────────────────────────
+  // Fallback finalizer. In most sessions turn_end captures everything;
+  // this handles the edge case where the agent finishes with a text-only
+  // response (no tool calls → no turn_end).
+  pi.on("agent_end", async (event: AgentEndEvent, ctx: any) => {
+    try {
+      if (!state || !state.currentSessionId || !projectDir) return;
+
+      const { telemetryPath, statePath, shouldWrite } =
+        await getTelemetryTarget(projectDir);
+      if (!shouldWrite) return;
+
+      // Reload state from disk
+      const currentState = await readState(statePath);
+      if (!currentState || currentState.currentSessionId !== sessionId) {
+        state = currentState;
+        if (!state || !state.currentSessionId) return;
+      }
+
+      const messages = event?.messages ?? [];
+
+      // Extract text from messages (nested shape: msg.message.role, msg.message.usage)
+      let newText = "";
+      let cumulativeInput = state.cumulative.inputTokens;
+      let cumulativeOutput = state.cumulative.outputTokens;
+      let cumulativeCacheRead = state.cumulative.cacheReadTokens;
+      let cumulativeCacheWrite = state.cumulative.cacheWriteTokens;
+      const lessonIds = new Set(state.cumulative.lessonHits);
+      const skills = new Set(state.cumulative.skills);
+      const models = new Set(state.cumulative.models);
+      let gateStatus = state.cumulative.gates;
+
+      for (const entry of messages) {
+        const inner = (entry as any).message ?? entry;
+        const role = inner.role;
+        if (role !== "assistant") continue;
+
+        const usage = inner.usage;
+        if (usage) {
+          cumulativeInput += usage.input ?? 0;
+          cumulativeOutput += usage.output ?? 0;
+          cumulativeCacheRead += usage.cacheRead ?? 0;
+          cumulativeCacheWrite += usage.cacheWrite ?? 0;
+        }
+        if (inner.model) models.add(inner.model);
+
+        const text = extractMessageText(inner);
+        newText += text + "\n";
+      }
+
+      for (const id of extractLessonCitations(newText)) lessonIds.add(id);
+      for (const skill of extractSkills(newText)) skills.add(skill);
+      const detectedGate = detectGates(newText);
+      if (detectedGate !== "unknown") gateStatus = detectedGate;
+
+      // Only write if turn_end didn't already capture this turn
+      const turnIndex = state.cumulative.turnIndex;
+      if (turnIndex > 0 && cumulativeInput === state.cumulative.inputTokens) {
+        return; // turn_end already handled everything
+      }
+
+      const newTurn = turnIndex + 1;
+      const model = models.size > 0 ? [...models].slice(-1)[0] : "unknown";
+
+      const record: RunningRecord = {
+        type: "running",
+        ts: isoNow(),
+        "harness.session_id": state.currentSessionId,
+        "harness.project": state.projectKey,
+        "harness.device": deviceName ?? os.hostname(),
+        "harness.estimator": ESTIMATOR,
+        "gen_ai.request.model": model,
+        "gen_ai.usage.input_tokens": cumulativeInput,
+        "gen_ai.usage.output_tokens": cumulativeOutput,
+        "harness.usage.cache_read_tokens": cumulativeCacheRead,
+        "harness.usage.cache_write_tokens": cumulativeCacheWrite,
+        "harness.lesson_hits": [...lessonIds].sort(),
+        "harness.skills": [...skills].sort(),
+        "harness.gates": gateStatus,
+        turn_index: newTurn,
+      };
+
+      state.cumulative = {
+        inputTokens: cumulativeInput,
+        outputTokens: cumulativeOutput,
+        cacheReadTokens: cumulativeCacheRead,
+        cacheWriteTokens: cumulativeCacheWrite,
+        lessonHits: [...lessonIds],
+        skills: [...skills],
+        gates: gateStatus,
+        models: [...models],
+        turnIndex: newTurn,
+      };
+      await writeState(statePath, state);
+      await appendLine(telemetryPath, JSON.stringify(record));
       await updateLessonStats([...lessonIds], projectDir).catch(() => {});
     } catch (err) {
       if (projectDir) {

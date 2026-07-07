@@ -40,12 +40,12 @@ export default function sessionSummary(pi: ExtensionAPI) {
     }
   });
 
-  pi.on("agent_end", async (_event, ctx) => {
+  pi.on("turn_end", async (_event, ctx) => {
     try {
       await updateRollingEntry(ctx, /* finalize */ false);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      ctx.ui.notify(`[ss] agent_end ERROR: ${msg}`, "error");
+      ctx.ui.notify(`[ss] turn_end ERROR: ${msg}`, "error");
     }
   });
 
