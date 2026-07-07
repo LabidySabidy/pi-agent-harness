@@ -27,3 +27,4 @@ test-results/
 # Personal memory (not shipped)
 agent/LESSONS.md
 agent/lesson-stats.json
+agent/AGENTS.md

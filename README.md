@@ -7,18 +7,17 @@
 ## Quick Start
 
 ```bash
-# 1. Clone into Pi's home directory (so agent/ lands at ~/.pi/agent/)
+# 1. Clone — the repo root is ~/.pi, so agent/ lands at ~/.pi/agent/
 git clone https://github.com/LabidySabidy/pi-agent-harness.git ~/.pi
 
-# 2. Customize your context: edit ~/.pi/agent/AGENTS.md (Context section)
+# 2. Seed your personal files (templates → live)
+cp ~/.pi/agent/LESSONS.md.template ~/.pi/agent/LESSONS.md
+cp ~/.pi/agent/AGENTS.md.template ~/.pi/agent/AGENTS.md
+# Edit AGENTS.md: replace the Context section with your role, stack, platform.
 
-# 2. Start Pi in any project directory — skills and extensions auto-discover
-
-# 3. Scaffold a new project
-/skill:scaffold
-
-# 4. Or jump into an existing one
-/skill:plan-then-implement
+# 3. Start Pi in any project directory
+cd ~/my-project
+pi
 ```
 
 Pi auto-loads skills from `~/.pi/agent/skills/` and extensions from `~/.pi/agent/extensions/` on startup. No config files, no install scripts.
