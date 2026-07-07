@@ -29,7 +29,8 @@ const AVAILABLE_SKILLS = [
   },
   {
     name: "scaffold",
-    description: "New project bootstrap with discovery flow",
+    description:
+      "New project bootstrap with discovery, GitHub repo, and live Vercel deploy",
   },
   {
     name: "plan-then-implement",
@@ -38,6 +39,21 @@ const AVAILABLE_SKILLS = [
   {
     name: "investigate-bug",
     description: "Structured defect investigation, root cause, TDD fix",
+  },
+  {
+    name: "branch-hygiene",
+    description:
+      "Feature-branch start, PR creation, and branch cleanup",
+  },
+  {
+    name: "promote-lessons",
+    description:
+      "Review pending lesson candidates and promote accepted ones into LESSONS.md",
+  },
+  {
+    name: "spike",
+    description:
+      "Throwaway prototype to validate the riskiest technical assumption",
   },
 ];
 
@@ -67,8 +83,8 @@ Rules:
 - Confidence reflects how sure you are this skill is the right match.
 - "investigate-bug" wins over "plan-then-implement" when the message is about something failing.
 - "grill" loads when user says "grill me", "poke holes", "red team", or describes a non-trivial plan to interrogate.
-- "scaffold" only for genuinely new projects, not for new features in existing projects.
-- Short questions, clarifications, or pure status checks should return null.
+- "scaffold" is ONLY for genuinely new projects (not features in existing projects). Strong signals: the user is naming a new app, describing what it does, or saying "build a new app". Weak signals to IGNORE: talking about process, approving changes ("i dig it", "looks good", "yes"), discussing skills or configuration, mentioning "new projects" in a meta context about how things work.
+- Short questions, clarifications, status checks, approvals ("yes", "sounds good", "i dig it"), and meta-discussion about skills/process should return null.
 `;
 
 export default function classifierRouter(pi: ExtensionAPI) {
