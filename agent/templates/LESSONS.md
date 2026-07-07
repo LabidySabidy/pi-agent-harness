@@ -1,3 +1,4 @@
+<!-- PROJECT LESSONS TEMPLATE — Used by /skill:scaffold when bootstrapping a new project. Lives at agent/templates/LESSONS.md. Not to be confused with agent/LESSONS.md.template (global personal-lessons seed). -->
 # Lessons Learned — <Project Name>
 
 > Project-specific patterns, danger zones, and gotchas. Loaded at session start.

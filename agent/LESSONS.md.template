@@ -1,3 +1,4 @@
+<!-- GLOBAL PERSONAL LESSONS SEED — Copy to ~/.pi/agent/LESSONS.md via the Quick Start cp step. Holds patterns that apply across all your projects. -->
 # Cross-Project Lessons
 
 > Patterns that apply across projects. Loaded at session start alongside

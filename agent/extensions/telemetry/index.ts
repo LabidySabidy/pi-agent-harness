@@ -42,10 +42,13 @@ const HARNESS_ROOT = join(os.homedir(), ".pi");
 const ESTIMATOR = "chars4"; // default: character count / 4
 const GIT_LOG_BOOT_TOKENS = 200; // ~200 tokens for git log -20
 
-// Files loaded per AGENTS.md session-start protocol
-const PROTOCOL_FILES: Array<{ name: string; path: string[] }> = [
-  { name: "STANDARDS.md (global)", path: ["agent", "STANDARDS.md"] },
-  { name: "LESSONS.md (global)", path: ["agent", "LESSONS.md"] },
+// Files loaded per AGENTS.md session-start protocol.
+// global:true entries resolve against HARNESS_ROOT (~/.pi);
+// all others resolve against project cwd.
+const PROTOCOL_FILES: Array<{ name: string; path: string[]; global?: boolean }> = [
+  { name: "AGENTS.md (global)", path: ["agent", "AGENTS.md"], global: true },
+  { name: "STANDARDS.md (global)", path: ["agent", "STANDARDS.md"], global: true },
+  { name: "LESSONS.md (global)", path: ["agent", "LESSONS.md"], global: true },
   { name: "AGENTS.md (project)", path: ["AGENTS.md"] },
   { name: "STANDARDS.md (project)", path: ["STANDARDS.md"] },
   { name: "VISION.md", path: ["VISION.md"] },
@@ -55,6 +58,9 @@ const PROTOCOL_FILES: Array<{ name: string; path: string[] }> = [
 
 // Lesson citation regex: matches GL-001, L-042, etc.
 const LESSON_CITE_RE = /\b(GL|L)-(\d{3})\b/g;
+
+// Reserved non-lesson IDs that appear in header comments / examples
+const RESERVED_NON_LESSON_IDS = new Set(["GL-000"]);
 
 // Skill invocation regex: matches /skill:name patterns (letters + hyphens only, excludes backticks/parens/commas)
 const SKILL_RE = /\/skill:([a-zA-Z][a-zA-Z0-9-]*)/g;
@@ -212,8 +218,17 @@ async function measureBootPayload(cwd: string): Promise<Record<string, number>> 
 
   for (const file of PROTOCOL_FILES) {
     try {
-      const filePath = join(cwd, ...file.path);
-      const content = await fs.readFile(filePath, "utf8");
+      const base = file.global ? HARNESS_ROOT : cwd;
+      const filePath = join(base, ...file.path);
+      let content: string;
+      if (file.name === "PROGRESS.md") {
+        // Protocol reads first 50 lines only — measure what's actually loaded
+        const full = await fs.readFile(filePath, "utf8");
+        const lines = full.split("\n");
+        content = lines.slice(0, 50).join("\n");
+      } else {
+        content = await fs.readFile(filePath, "utf8");
+      }
       payload[file.name] = estimateTokens(content);
     } catch {
       // File doesn't exist — this is normal (most projects lack some protocol files)
@@ -330,7 +345,10 @@ function extractLessonCitations(text: string): string[] {
   let match: RegExpExecArray | null;
   const re = new RegExp(LESSON_CITE_RE.source, "g");
   while ((match = re.exec(text)) !== null) {
-    ids.add(`${match[1]}-${match[2]}`);
+    const id = `${match[1]}-${match[2]}`;
+    if (!RESERVED_NON_LESSON_IDS.has(id)) {
+      ids.add(id);
+    }
   }
   re.lastIndex = 0;
   return [...ids];

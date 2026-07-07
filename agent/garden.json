@@ -55,6 +55,7 @@
         "agent/sessions/",
         "agent/AGENTS.md",
         "agent/STANDARDS.md",
+        "agent/garden.json",
         "auth.json",
         ".git/"
       ],
