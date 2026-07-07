@@ -1,5 +1,6 @@
 # Secrets
 agent/auth.json
+agent/extensions/telepi-handoff.ts
 
 # Session data
 agent/sessions/
@@ -7,5 +8,18 @@ agent/sessions/
 # Binaries
 agent/bin/
 
-# Extensions (user-specific)
-agent/extensions/
+# TelePi package (externally owned)
+TelePi/
+
+# Test results
+test-results/
+
+# PowerShell scripts (not harness code)
+*.ps1
+
+# Rolling memory (generated)
+/PROGRESS.md
+/PLAN.md.archive
+
+# System data (generated)
+.agent/
