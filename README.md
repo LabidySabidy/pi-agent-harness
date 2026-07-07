@@ -1,6 +1,6 @@
 # Pi Agent Harness
 
-> A solo-developer agent harness: composable skills, persistent project memory, and event-driven extensions for the Pi coding agent.
+> A solo-developer agent harness: composable skills, persistent project memory, event-driven extensions, and a config-driven memory-lifecycle system that keeps your agent's context healthy over time.
 
 ---
 
@@ -38,27 +38,26 @@ flowchart LR
     ROUTE -->|"validate"| SPIKE["spike"]
     ROUTE -->|"design"| GRILL["grill"]
     ROUTE -->|"branch / PR"| BRANCH["branch-hygiene"]
-    ROUTE -->|"review"| PROMOTE["promote-lessons"]
+    ROUTE -->|"maintenance"| GARDEN["gardening"]
 
     SCAFFOLD -->|"hands off to"| PLAN
     PLAN -->|"complex → triggers"| GRILL
     GRILL -->|"design doc linked from"| PLAN
     PLAN -->|"creates feature branch"| BRANCH
     BRANCH -->|"archives on merge"| PLAN
-    SPIKE -->|"learnings feed into"| PLAN
 ```
 
 | Layer | Location | What it does |
 |---|---|---|
 | **Skills** | `~/.pi/agent/skills/` | Reusable workflows invoked via `/skill:name` or auto-routed by the classifier |
-| **Extensions** | `~/.pi/agent/extensions/` | TypeScript hooks on agent lifecycle events — classify intents, update PROGRESS.md, extract lessons |
+| **Extensions** | `~/.pi/agent/extensions/` | TypeScript hooks on agent lifecycle events — classify intents, update PROGRESS.md, extract lessons, collect telemetry |
 | **Memory** | `<project>/` + `~/.pi/agent/` | Markdown files that persist across sessions — VISION.md, LESSONS.md, PROGRESS.md, PLAN.md |
 
 ### Session lifecycle
 
 1. **Start** — Reads global files (STANDARDS.md, LESSONS.md), then project files (VISION.md, PROGRESS.md, LESSONS.md). Runs `git log -20`. Checks branch tracking.
 2. **Routing** — `classifier-router` classifies every user message and routes to the right skill.
-3. **Execution** — Skills run. `session-summary` updates PROGRESS.md after each turn. `extract-patterns` scans for lesson candidates.
+3. **Execution** — Skills run. `session-summary` updates PROGRESS.md after each turn. `extract-patterns` scans for lesson candidates. `telemetry` tracks tokens, citations, skills, and gates.
 4. **End** — Rolling PROGRESS.md entry finalized. Extract-patterns does a final sweep. Branch-hygiene archives PLAN.md and TASKS.md on merge.
 
 ### Design principles
@@ -82,7 +81,11 @@ All skills live at `~/.pi/agent/skills/`. Invoke explicitly (`/skill:name`) or l
 | [plan-then-implement](agent/skills/skill-plan-then-implement.md) | `build this`, `implement this` | Read → PLAN.md → TASKS.md → TDD per phase → gates |
 | [investigate-bug](agent/skills/skill-investigate-bug.md) | `investigate`, `debug`, `why is this failing` | 8-step defect investigation → root cause → fix plan |
 | [branch-hygiene](agent/skills/skill-branch-hygiene.md) | `branch`, `create PR`, `ship it` | Phase A: create `feat/*` branch. Phase B: push PR / merge / discard. Cleanup stale branches. |
-| [promote-lessons](agent/skills/skill-promote-lessons.md) | `promote lessons`, `review pending` | One-at-a-time review of `.agent/lessons-pending.md` → LESSONS.md |
+| [gardening](agent/skills/skill-gardening.md) | `garden`, `gardening`, `clean up lessons`, `prune`, `promote lessons` | Config-driven memory maintenance: 8 passes for intake, merge, demote, compress, progress-horizon, asset sweeps, break-in review, and reporting. Replaces promote-lessons. |
+
+### Legacy skills
+
+**promote-lessons** — superseded by gardening. The classifier still routes `promote lessons` to gardening. The old skill file is kept as a redirect stub. Use `/skill:gardening --pass intake` for lesson review, or run the full gardening session for a complete memory checkup.
 
 ### When to use which
 
@@ -93,46 +96,58 @@ Building a feature?             → /skill:plan-then-implement
 Design feels shaky?             → /skill:grill
 Something's broken?             → /skill:investigate-bug
 Ready to merge?                 → /skill:branch
-Pending lessons piling up?      → /skill:promote-lessons
+Memory getting cluttered?       → /skill:gardening
 ```
 
 ---
 
-## Memory
+## Memory lifecycle
 
-Project files persist across sessions. The agent reads them at startup, writes during and after each session.
+The harness maintains project memory files across sessions. Over time these files grow — more lessons, more progress entries, more design artifacts. The memory-lifecycle system (gardening + telemetry) keeps this sustainable.
 
-### What writes what, and when
+### Lesson identity and stats
 
-| When | Writer | Output |
+Every lesson gets a unique ID (`GL-NNN` for global, `L-NNN` for project). The `telemetry` extension tracks every citation — when the agent references a lesson in a response, it registers a hit in `lesson-stats.json`. This powers:
+
+- **Decay tracking** — uncited lessons decay (0.9× per session); cited lessons reset to 1.0
+- **Demotion eligibility** — when decay drops below a configurable threshold and the grace period has passed, gardening can propose removal
+- **Anchor lessons** — damage-preventing lessons flagged as anchors get extra scrutiny before modification
+- **Merge detection** — near-duplicate lessons with different IDs can be consolidated
+
+### PROGRESS.md windowing
+
+PROGRESS.md accumulates entries indefinitely, but the boot protocol only reads the newest `N` entries (configured in `garden.json → progressWindow.loadEntries`). The rest stays on disk for lazy lookup — same principle as `references/`. This keeps boot cost constant regardless of PROGRESS.md size.
+
+### Gardening passes
+
+`/skill:gardening` runs up to 8 configurable passes: intake (review lesson candidates), merge, demote, compress, progress horizon (archive old entries), asset sweeps, break-in review, and summary reporting. Each pass is independently gated or auto-run per `garden.json → autonomy`. The deny-list protects core harness files — gardening can't touch skills, extensions, config, or the garden.json that defines its own limits.
+
+### What's on by default
+
+- `telemetry` extension: on. Tracks citations, tokens, skills, gates. Writes to `.agent/telemetry.jsonl`.
+- `extract-patterns` extension: on. Scans for lesson candidates. Writes to `.agent/lessons-pending.md`.
+- `session-summary` extension: on. Rolling PROGRESS.md entries.
+- `classifier-router` extension: on. Auto-routes messages to skills via DeepSeek.
+- `gardening-command` extension: on. Provides the `/gardening` command as an alternate entrance to `/skill:gardening`.
+
+---
+
+## Boot payload
+
+Every session starts by loading protocol files into context. This table reflects what's actually read:
+
+| File | chars | tokens |
 |---|---|---|
-| Every turn | `extract-patterns` | `.agent/lessons-pending.md` |
-| Every turn | `session-summary` | `PROGRESS.md` (rolling entry) |
-| Manual | `grill` | `.agent/grill/<topic>.md` |
-| Manual | `plan-then-implement` | `PLAN.md`, `TASKS.md` |
-| Manual | `promote-lessons` | `LESSONS.md` |
-| Merge | `branch-hygiene` | `.agent/archive/` (copies of PLAN.md + TASKS.md) |
-| Shutdown | `session-summary` | `PROGRESS.md` (finalized) |
-| Shutdown | `extract-patterns` | `.agent/lessons-pending.md` (final sweep) |
+| AGENTS.md (global) | ~7,928 | ~1,982 |
+| STANDARDS.md (global) | ~3,717 | ~929 |
+| LESSONS.md (global) | ~3,112 | ~778 |
+| PROGRESS.md (windowed: first 50 lines / ~5 entries) | varies | ~400 |
+| git log -20 | ~800 | ~200 |
+| **Total** | **~15,557** | **~4,289** |
 
-| File | Location | Purpose |
-|---|---|---|
-| VISION.md | Project | App identity, users, architecture, domain glossary |
-| PLAN.md | Project | Current implementation plan (one feature at a time) |
-| TASKS.md | Project | Task list with `Done when:` criteria per task |
-| LESSONS.md | Project | Danger zones, gotchas, decisions, anti-patterns |
-| PROGRESS.md | Project | Rolling session summaries (newest first) |
-| `.agent/lessons-pending.md` | Project | Auto-extracted lesson candidates (review with `/skill:promote-lessons`) |
-| `.agent/grill/` | Project | Design interrogation outputs |
-| `.agent/archive/` | Project | Historical PLAN.md + TASKS.md snapshots |
-| `~/.pi/agent/LESSONS.md` | Global | Patterns that apply across projects |
+Plus project-level files when present (project AGENTS.md, STANDARDS.md, VISION.md, PROGRESS.md, LESSONS.md). Project PROGRESS.md is also windowed to 5 entries.
 
-### How lessons flow
-
-1. **`extract-patterns`** scans assistant messages on every `agent_end` for patterns (danger zones, gotchas, decisions, anti-patterns, always-do).
-2. Candidates land in `.agent/lessons-pending.md` — silent, no notification.
-3. **`/skill:promote-lessons`** reviews them one at a time. Accept → project LESSONS.md. Promote-global → `~/.pi/agent/LESSONS.md`. Skip → removed.
-4. Both LESSONS.md files are loaded at session start so past mistakes aren't repeated.
+PROGRESS windowing is the durable win: 108 entries on disk, 5 loaded at boot — constant cost regardless of file growth. The AGENTS.md diet from an earlier pass was marginal (the file-layout reference was relocated to `references/authoring.md`; all operating rules remain in AGENTS.md). No further obvious candidates for relocation — the remaining content is all session-start protocol and operating principles.
 
 ---
 
@@ -152,13 +167,36 @@ Per-stack verification commands run in order (lint → type → test → build �
 
 ## Extensions
 
-Three TypeScript modules in `~/.pi/agent/extensions/` hook into Pi's event system:
+Four TypeScript modules in `~/.pi/agent/extensions/` hook into Pi's event system:
 
 | Extension | Hooks | What it does |
 |---|---|---|
 | **classifier-router** | `input` | Classifies user messages via DeepSeek → routes to the right skill |
 | **session-summary** | `agent_end`, `session_start`, `session_shutdown` | Maintains a rolling PROGRESS.md entry; auto-finalizes on shutdown |
 | **extract-patterns** | `agent_end`, `session_shutdown` | Scans new assistant messages for lesson candidates; incremental via `.agent/.extract-state.json` |
+| **telemetry** | `session_start`, `turn_end`, `agent_end`, `session_shutdown` | Session-level telemetry: boot payload, token usage, lesson citations, skill invocations, gate results. Append-only JSONL with journal recovery. |
+
+---
+
+## Prerequisites
+
+- **Pi** 0.80+ (the coding agent itself)
+- **Node.js** 18+ (for extensions)
+- **OpenRouter API key** — set `OPENROUTER_API_KEY` in your environment. The classifier-router uses this for intent routing. Without it, automatic routing is disabled but manual `/skill:name` invocation still works — every skill loads from disk without an API call.
+
+---
+
+## Configuration
+
+User-customizable files (all optional — the harness works with defaults):
+
+| File | Location | Purpose |
+|---|---|---|
+| `AGENTS.md` | `~/.pi/agent/AGENTS.md` | Your personal context: role, stack, platform, operating principles |
+| `garden.json` | `~/.pi/agent/garden.json` | Gardening budgets, autonomy levels, decay parameters, sweat horizons |
+| `STANDARDS.md` | `~/.pi/agent/STANDARDS.md` | Capability mappings, acceptance gates per stack |
+| `LESSONS.md.template` | `~/.pi/agent/` | Seed your global lessons file (copy to `LESSONS.md` via Quick Start step 2) |
+| Templates | `~/.pi/agent/templates/` | Project scaffold templates: VISION.md, PLAN.md, TASKS.md, PROGRESS.md, LESSONS.md |
 
 ---
 
@@ -169,7 +207,8 @@ Three TypeScript modules in `~/.pi/agent/extensions/` hook into Pi's event syste
 ├── AGENTS.md                        # Preamble, rules, memory protocol
 ├── STANDARDS.md                     # Gates, capability mapping
 ├── LESSONS.md                       # Cross-project patterns
-├── README.md                        # This file
+├── garden.json                      # Memory-lifecycle config (budgets, decay, autonomy)
+├── lesson-stats.json                # Lesson citation stats (telemetry-maintained)
 ├── skills/                          # Composable skills
 │   ├── skill-scaffold.md
 │   ├── skill-spike.md
@@ -177,14 +216,19 @@ Three TypeScript modules in `~/.pi/agent/extensions/` hook into Pi's event syste
 │   ├── skill-plan-then-implement.md
 │   ├── skill-investigate-bug.md
 │   ├── skill-branch-hygiene.md
-│   └── skill-promote-lessons.md
+│   └── skill-gardening.md
 ├── extensions/                      # Event-driven TypeScript
 │   ├── classifier-router/
 │   ├── session-summary/
-│   └── extract-patterns/
+│   ├── extract-patterns/
+│   ├── telemetry/
+│   └── gardening-command/
 └── templates/                       # File templates for scaffold
-    ├── VISION.md, PLAN.md, TASKS.md, PROGRESS.md
-    └── LESSONS.md
+    ├── VISION.md
+    ├── PLAN.md
+    ├── TASKS.md
+    ├── PROGRESS.md
+    └── LESSONS.md                   # Project-scaffold LESSONS template (not the seed)
 
 <project>/                           # Per-project memory
 ├── VISION.md                        # App identity + glossary + architecture
@@ -195,6 +239,9 @@ Three TypeScript modules in `~/.pi/agent/extensions/` hook into Pi's event syste
 └── .agent/                          # System data
     ├── lessons-pending.md
     ├── .extract-state.json
+    ├── telemetry.jsonl
+    ├── lesson-stats.json
     ├── grill/                       # Design interrogation
-    └── archive/                     # Historical plans/tasks
+    ├── archive/                     # Historical plans/tasks
+    └── reports/                     # Gardening reports (durable, never swept)
 ```
