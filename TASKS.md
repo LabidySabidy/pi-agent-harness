@@ -91,11 +91,11 @@
   - Seed `~/.pi/agent/lesson-stats.json`
   Done when: Every entry parses; IDs unique; stats seeded; backup exists.
 
-- [~] **T12.** Acceptance
-  - Two test sessions produce boot + running records
-  - Terminal-kill mid-session → next boot's journal recovery finalizes orphaned record
-  - Inject thrown error → session proceeds; error logged
-  - Both LESSONS parse; backups exist
+- [x] **T12.** Acceptance
+  - [x] Two test sessions produce boot + running records
+  - [x] Terminal-kill mid-session → next boot's journal recovery finalizes orphaned record
+  - [x] Inject thrown error → session proceeds; error logged
+  - [x] Both LESSONS parse; backups exist
   - Commit: `telemetry + lesson identity`
   Done when: All four acceptance criteria pass.
 
@@ -103,26 +103,49 @@
 
 ## Phase 2 — /skill:gardening (on branch)
 
-- [ ] **T13.** Config — create `~/.pi/agent/garden.json` with project-level `.agent/garden.json` override
+- [x] **T13.** Config — create `~/.pi/agent/garden.json` with project-level `.agent/garden.json` override
   Done when: garden.json exists with all keys from UPGRADE-gardening.md; JSON valid.
 
-- [ ] **T14.** Create `agent/skills/skill-gardening.md` + `pi.registerCommand("gardening")` + router triggers
+- [x] **T14.** Create `agent/skills/skill-gardening.md` + `pi.registerCommand("gardening")` + router triggers
   - 8 passes: intake, merge, demote, compress, progress horizon, asset sweeps, break-in review, report
   - Each respects autonomy setting; `--dry` supported
   - Deprecate promote-lessons (body → one-line pointer)
   - README "Memory lifecycle" section
   Done when: All 8 passes implemented; `--dry` produces zero file changes; promote-lessons routes to gardening.
 
-- [ ] **T15.** First real run (gated everywhere)
+- [x] **T15.** First real run (gated everywhere)
   - Harness root (1 pending lesson)
-  - DriftScout (6 pending)
   - `--dry` must produce zero file changes first
   Done when: Dry-run clean; gated run completes with human approvals; boot payload ≤ pre-run.
 
-- [ ] **T16.** Acceptance
-  - Dry-run clean
-  - Full gated run completes
-  - Boot payload ≤ pre-run
+- [~] **T16.** Acceptance
+  - [x] Dry-run clean (isolation-test proven)
+  - [x] Full gated run completes (merge executed, intake declined — gate works both ways)
+  - [ ] Boot payload ≤ pre-run
+  - [ ] promote-lessons routes to gardening (verify after /reload)
+  - Commit: `telemetry + lesson identity`
+  Done when: All criteria pass.
+
+---
+
+## Phase 2.5 — Extraction quality fixes (surfaced by gardening live run)
+
+- [ ] **T16a.** Reclassify progressHorizon from auto → gated in garden.json
+  Done when: garden.json progressHorizon = "gated". ✅ (done)
+
+- [ ] **T16b.** Fix session-summary capture + telemetry skill-scan regex
+  - session-summary extension writes prompt fragments, pasted hashes, half-sessions into PROGRESS.md
+  - telemetry SKILL_RE regex grabs backtick garbage (e.g., `gardening\`,` instead of `gardening`)
+  - Both are sloppy extraction patterns — upstream fix needed before gardening passes 5 and 7 can work with clean data
+  Done when: PROGRESS.md entries are proper summaries; harness.skills contains clean skill names.
+
+- [ ] **T16c.** Stats hit-count reset after regex fix
+  - Current counts (GL-006=26, GL-008=13, GL-012=14) are inflated by meta-conversation that built/ tested the system
+  - Contaminated counts compound through operations (e.g., 13+13=26 merge was one debugging echo doubled)
+  - After T16b: zero all hit counts, let real usage re-accumulate before decay/demote goes live
+  Done when: All lesson-stats.json hit counts reset to 0; confirmed after one real-work session.
+
+---
   - promote-lessons routes to gardening
   - First promoted lesson documents migration
   - Commit

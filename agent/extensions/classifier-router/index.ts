@@ -48,7 +48,12 @@ const AVAILABLE_SKILLS = [
   {
     name: "promote-lessons",
     description:
-      "Review pending lesson candidates and promote accepted ones into LESSONS.md",
+      "DEPRECATED — use gardening. Review pending lesson candidates and promote accepted ones into LESSONS.md",
+  },
+  {
+    name: "gardening",
+    description:
+      "Config-driven memory gardening — review, clean, compress, and report on agent memory files (replaces promote-lessons)",
   },
   {
     name: "spike",

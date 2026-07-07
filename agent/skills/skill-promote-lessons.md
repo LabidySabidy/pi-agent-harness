@@ -11,9 +11,21 @@ triggers:
 
 # Skill: Promote Lessons
 
-Interactively review `.agent/lessons-pending.md` candidates and promote
-accepted ones into the project's `LESSONS.md` (or the global cross-project
-`~/.pi/agent/LESSONS.md`). One candidate at a time. Low friction.
+**DEPRECATED — use /skill:gardening (Pass 1: Intake) instead.**
+
+Gardening replaces promote-lessons with a full memory management workflow:
+intake, merge, demote, compress, progress horizon, asset sweeps, break-in
+review, and reporting. All gated, all with --dry support.
+
+If you arrived here via the classifier-router: type `/skill:gardening` to
+begin, or just say "garden" and the router will route you there.
+
+---
+
+_Original skill body preserved below for reference. This skill is no longer
+maintained — updates happen in skill-gardening.md._
+
+---
 
 ## Hard rules
 

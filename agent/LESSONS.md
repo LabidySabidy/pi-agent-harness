@@ -23,7 +23,7 @@
 ## Anti-patterns
 
 - GL-007 Don't jam new features into existing skills — plan-then-implement should not absorb branch creation, approach exploration, or review workflows. Each concern gets its own skill. Skills reference each other at integration points (one-line invocations), not by merging text.
-- GL-008 Don't create a new config file when AGENTS.md frontmatter works — Same pattern as above. Frontmatter is machine-parseable, human-readable, and already loaded at session start. Adding `.agent/config` creates a second convention with no benefit.
+- GL-008 ~~Don't create a new config file when AGENTS.md frontmatter works — Same pattern as above.~~ <!-- merged-into GL-006 -->
 - GL-009 Don't write verification claims without evidence — "Tests pass" is not verification; the test output in the message is. "Grepped for keywords" is not verification; the matched line with line number is. This applies across every project, every session.
 
 ## Always do
