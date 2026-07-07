@@ -1,0 +1,13 @@
+{
+  "GL-001": { "hits": 0, "last_used": null, "device_last_hit": null, "decay": 1.0, "confidence": 0.5, "added": "2026-07-06", "category": "Danger zones" },
+  "GL-002": { "hits": 0, "last_used": null, "device_last_hit": null, "decay": 1.0, "confidence": 0.5, "added": "2026-07-06", "category": "Danger zones" },
+  "GL-003": { "hits": 0, "last_used": null, "device_last_hit": null, "decay": 1.0, "confidence": 0.5, "added": "2026-07-06", "category": "Gotchas" },
+  "GL-004": { "hits": 0, "last_used": null, "device_last_hit": null, "decay": 1.0, "confidence": 0.5, "added": "2026-07-06", "category": "Gotchas" },
+  "GL-005": { "hits": 0, "last_used": null, "device_last_hit": null, "decay": 1.0, "confidence": 0.5, "added": "2026-07-06", "category": "Decisions made" },
+  "GL-006": { "hits": 0, "last_used": null, "device_last_hit": null, "decay": 1.0, "confidence": 0.5, "added": "2026-07-06", "category": "Decisions made" },
+  "GL-007": { "hits": 0, "last_used": null, "device_last_hit": null, "decay": 1.0, "confidence": 0.5, "added": "2026-07-06", "category": "Anti-patterns" },
+  "GL-008": { "hits": 0, "last_used": null, "device_last_hit": null, "decay": 1.0, "confidence": 0.5, "added": "2026-07-06", "category": "Anti-patterns" },
+  "GL-009": { "hits": 0, "last_used": null, "device_last_hit": null, "decay": 1.0, "confidence": 0.5, "added": "2026-07-06", "category": "Anti-patterns" },
+  "GL-010": { "hits": 0, "last_used": null, "device_last_hit": null, "decay": 1.0, "confidence": 0.5, "added": "2026-07-06", "category": "Always do" },
+  "GL-011": { "hits": 0, "last_used": null, "device_last_hit": null, "decay": 1.0, "confidence": 0.5, "added": "2026-07-06", "category": "Always do" }
+}
