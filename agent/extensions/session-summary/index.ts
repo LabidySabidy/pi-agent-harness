@@ -185,6 +185,14 @@ function extractText(entry: Record<string, unknown>): string {
 }
 
 function extractRecap(text: string): string | null {
+  // Match our standard recap format: **Changed:** / **Verified:** / **Next:**
+  // (bold markers, per AGENTS.md end-of-output recap)
+  const boldRecap = text.match(
+    /\*\*Changed:\*\*[\s\S]+?\*\*Next:\*\*[^\n]*(?:\n|$)/i
+  );
+  if (boldRecap) return boldRecap[0].trim();
+
+  // Fallback: match ## Recap / ## Done / ## Summary / ## What changed headers
   const recapMatch = text.match(
     /(?:^|\n)##\s*(?:Recap|Done|Summary|What changed)[\s\S]+?$/i
   );
