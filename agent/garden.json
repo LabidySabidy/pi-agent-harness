@@ -28,6 +28,11 @@
     "archiveAfterDays": 30
   },
 
+  "progressWindow": {
+    "$comment": "Boot reads only the newest N entries from PROGRESS.md (newest-first format). Rest stays on disk — same lazy-load principle as references/. Makes boot cost constant instead of growing with file size.",
+    "loadEntries": 5
+  },
+
   "sweeps": {
     "$comment": "Max age before sweep passes archive or delete files.",
     "grillMaxAgeDays": 45,

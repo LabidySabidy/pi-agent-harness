@@ -19,7 +19,7 @@ Your FIRST actions in every new session, before responding to my request:
    - Nearest `AGENTS.md` walking up from cwd (project preamble + overrides; absent in most projects — global AGENTS.md applies)
    - `<project>/STANDARDS.md` — project-specific gates (overrides global; skip if absent)
    - `<project>/VISION.md` — what this app is, who it's for, what problem it solves; includes domain glossary
-   - `<project>/PROGRESS.md` — recent session summaries (read the FIRST 50 lines; session-summary writes newest-first)
+   - `<project>/PROGRESS.md` — read the first N session entries (newest at top, `## YYYY-MM-DD` headers). N = `garden.json → progressWindow.loadEntries` (default 5). Use `read` with `limit: 150` to stop after the newest entries. The rest stays on disk — same lazy-load principle as references/. Boot cost is constant regardless of file size.
    - `<project>/LESSONS.md` — danger zones, gotchas, prior decisions
 2. Run `git log --oneline -20` for cross-session context.
 3. If branch tracking is enabled (project AGENTS.md contains `branch_tracking: true`), check current branch. If on main/master, report: "On main. Branch tracking is on — I'll prompt for a feature branch per the branch-before-code rule." Do NOT branch yet — wait for the first substantive edit.

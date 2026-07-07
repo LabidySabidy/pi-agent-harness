@@ -77,6 +77,16 @@ async function updateRollingEntry(
   const summary = summarizeEntries(entries);
   if (!summary) return;
 
+  // Entry gate: skip turns with no substantive content.
+  // Must have a recap block OR substantial prose (>200 chars).
+  // Prevents bare tool calls, user-prompt echoes, and research turns
+  // from bloating PROGRESS.md. Mechanical check — no interpretation.
+  const hasRecap = /\*\*Changed:\*\*/i.test(summary)
+    || /\*\*Verified:\*\*/i.test(summary)
+    || /\*\*Next:\*\*/i.test(summary)
+    || /^##\s*(?:Recap|Done|Summary)/im.test(summary);
+  if (!hasRecap && summary.length < 200) return;
+
   const progressPath = join(ctx.cwd, PROGRESS_FILENAME);
   const exists = await fileExists(progressPath);
   const current = exists
