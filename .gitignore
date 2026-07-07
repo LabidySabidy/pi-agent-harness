@@ -23,3 +23,7 @@ test-results/
 
 # System data (generated)
 .agent/
+
+# Personal memory (not shipped)
+agent/LESSONS.md
+agent/lesson-stats.json

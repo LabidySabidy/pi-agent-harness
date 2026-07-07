@@ -183,6 +183,11 @@ function extractCandidates(
       for (const m of matches) {
         const matchText = m[0].trim();
         if (matchText.length < 20 || matchText.length > 300) continue;
+
+        // Mechanical garbage filter — rejects on detectable signals only.
+        // Does NOT judge lesson quality (that's the intake gate's job).
+        if (isGarbageCandidate(matchText)) continue;
+
         candidates.push({
           category,
           text: matchText,
@@ -229,8 +234,40 @@ function extractText(entry: SessionEntry): string {
 
 function stripCodeFences(text: string): string {
   // Remove ```...``` blocks including language specifiers
-  // Matches triple-backtick blocks, preserving newlines around them
   return text.replace(/```[\s\S]*?```/g, "");
+}
+
+// ---------------------------------------------------------------------------
+// Mechanical garbage filter — rejects on detectable signals only.
+// Does NOT judge lesson quality. Division of labor:
+//   extraction rejects detectable garbage (this),
+//   intake judges quality (human, at the gate).
+// ---------------------------------------------------------------------------
+
+function isGarbageCandidate(text: string): boolean {
+  // Truncated: ends mid-word or without terminal punctuation.
+  // Detects fragments like "the static screen" or "must include:"
+  const hasTerminator = /[.!?:)"']\s*$/.test(text);
+  const endsWithEllipsis = /\.\.\.\s*$/.test(text);
+  if (!hasTerminator && !endsWithEllipsis) {
+    // Check if we ended mid-word (last char is alphanumeric)
+    const lastChar = text.replace(/\s+$/, '').slice(-1);
+    if (/[a-zA-Z0-9]/.test(lastChar)) return true;
+  }
+
+  // Too short: fewer than 5 words or < 30 chars
+  const words = text.split(/\s+/).filter(w => w.length > 0);
+  if (words.length < 5 || text.length < 30) return true;
+
+  // Mostly code/URL/path: > 30% of the text is URLs, file paths, or code.
+  const urlCount = (text.match(/https?:\/\/[^\s]+/g) || []).length;
+  const pathCount = (text.match(/[~/\w]+\/[\w./-]+/g) || []).length;
+  const codeCount = (text.match(/`[^`]+`/g) || []).length;
+  const fragmentChars = (text.match(/https?:\/\/[^\s]+|[~/\w]+\/[\w./-]+|`[^`]+`/g) || [])
+    .reduce((sum, s) => sum + s.length, 0);
+  if (fragmentChars > text.length * 0.3) return true;
+
+  return false;
 }
 
 // ---------------------------------------------------------------------------

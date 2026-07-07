@@ -7,8 +7,10 @@
 ## Quick Start
 
 ```bash
-# 1. Clone into Pi's agent directory
-git clone https://github.com/LabidySabidy/pi-agent-harness.git ~/.pi/agent
+# 1. Clone into Pi's home directory (so agent/ lands at ~/.pi/agent/)
+git clone https://github.com/LabidySabidy/pi-agent-harness.git ~/.pi
+
+# 2. Customize your context: edit ~/.pi/agent/AGENTS.md (Context section)
 
 # 2. Start Pi in any project directory — skills and extensions auto-discover
 

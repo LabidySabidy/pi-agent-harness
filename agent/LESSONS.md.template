@@ -1,0 +1,25 @@
+# Cross-Project Lessons
+
+> Patterns that apply across projects. Loaded at session start alongside
+> the project-specific LESSONS.md.
+> Promote items here via `/skill:gardening`.
+
+## Danger zones
+
+<!-- Add danger-zone lessons here -->
+
+## Gotchas
+
+<!-- Add gotcha lessons here -->
+
+## Decisions made
+
+<!-- Add decision lessons here -->
+
+## Anti-patterns
+
+<!-- Add anti-pattern lessons here -->
+
+## Always do
+
+<!-- Add always-do lessons here -->

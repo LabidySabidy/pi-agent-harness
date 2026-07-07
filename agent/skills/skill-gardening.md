@@ -181,10 +181,39 @@ If LESSONS.md is already under budget: "LESSONS.md is within budget — nothing 
 **Autonomy:** auto (from garden.json)
 
 Archive old PROGRESS.md entries. Rules:
-- Newest `garden.json.progress.verbatimSessions` sessions: keep verbatim.
+
+### Step 1 — Drop worthless entries
+
+Before compacting, filter entries that add no value. Dropped entries move to
+`.agent/archive/PROGRESS-dropped-YYYYMMDD.md` (never-delete applies — archive, don't delete).
+Drop criteria (mechanical only — no interpretation, no reading body for intent):
+- No date header (e.g., `## 1` stubs — malformed entries without a `YYYY-MM-DD HH:MM` prefix)
+- Body is purely a code fence or hash paste with no prose (checkable without interpretation)
+When unsure, compact rather than drop — a wrongly-compacted entry stays in the file;
+a wrongly-dropped entry is gone. Bias toward keeping.
+
+### Step 2 — Dormancy check
+
+Before compacting: count how many entries are within `archiveAfterDays` days.
+If **zero** entries are within that window, the project is dormant.
+
+- **Dormant project:** STOP after Step 1. Only clean stale `session-in-progress`
+  markers (killed-session artifacts). Leave all entries untouched — they're
+  re-entry context for when you return. No compaction, no archiving.
+  Windowing already makes old entries free at boot.
+- **Active project:** proceed to Step 3. Compaction and archiving are safe
+  because ongoing work supersedes old detail.
+
+### Step 3 — Compact remaining entries
+
+- Newest `garden.json.progress.verbatimSessions` REAL sessions: keep verbatim.
+  Count only sessions that survived the drop step — a dropped entry does not
+  consume a verbatim slot.
 - Older than that but within `garden.json.progress.archiveAfterDays` days: keep
   one-line summary per session.
-- Older than `archiveAfterDays`: move to `.agent/archive/PROGRESS-YYYY-MM.md`.
+- Older than `archiveAfterDays` AND project is active: move to
+  `.agent/archive/PROGRESS-YYYY-MM.md`. If project is dormant, these stay
+  compacted in PROGRESS.md instead (see Step 2).
 - Write the compacted PROGRESS.md back to disk.
 
 **Must check:** deny-list before PROGRESS.md write. Allowed-dir check for archive files.

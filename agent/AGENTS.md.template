@@ -1,0 +1,12 @@
+# Global Agent Preamble
+
+## Context
+<!-- CUSTOMIZE: replace with your role, stack, and platform -->
+[Solo developer / team lead / engineer]. Primary stack: [languages and frameworks]. Platform: [OS, editor].
+<!-- Example: Solo developer. Primary stack: TypeScript + React. Platform: macOS + VS Code. -->
+
+## Tone
+Terse. Skip preamble. No "I'll help you with that!" or recapping the request.
+
+[The rest of this file is the standard harness preamble — it ships as-is.
+ Customize only the Context section above to match your environment.]

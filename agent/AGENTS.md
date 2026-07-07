@@ -1,9 +1,9 @@
 # Global Agent Preamble
 
 ## Context
-Solo entrepreneur and senior engineer. Primary stack: Java + Spring Boot for backends; React or Angular for frontends; occasional Python (Flask). Building personal apps and shipping them to small audiences. No team to coordinate with.
-
-Platform: Windows + PowerShell, with VS Code as editor. Pi runs in the integrated terminal. Mac is secondary.
+<!-- CUSTOMIZE: Replace with your role, stack, and platform -->
+Solo developer. Primary stack: [your languages/frameworks]. Building and shipping personal apps. No team.
+Platform: [your OS], with [your editor].
 
 ## Tone
 Terse. Skip preamble. No "I'll help you with that!" or recapping my request back to me.
