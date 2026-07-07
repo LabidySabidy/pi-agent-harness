@@ -20,7 +20,7 @@
  * - Silent operation — no console output, no notification
  */
 
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { promises as fs } from "node:fs";
 import { join, dirname } from "node:path";
 
