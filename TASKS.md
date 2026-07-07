@@ -120,11 +120,13 @@
 
 - [~] **T16.** Acceptance
   - [x] Dry-run clean (isolation-test proven)
-  - [x] Full gated run completes (merge executed, intake declined — gate works both ways)
-  - [ ] Boot payload ≤ pre-run (blocked — requires T16b: session-summary fix + pass 5 compaction of 847-line PROGRESS.md)
+  - [x] Full gated run completes (merge executed, intake declined)
+  - [x] Boot payload ≤ pre-run (13,950 → 7,206 tokens, -48%: pass 5 -55% on PROGRESS, AGENTS.md diet -8.5%)
   - [ ] promote-lessons routes to gardening (verify after /reload)
-  - Commit: `telemetry + lesson identity`
   Done when: All criteria pass.
+
+- [x] **T16e.** AGENTS.md global diet — relocate reference material to reduce per-session cost
+  Done when: AGENTS.md 1,982 → 1,813 tokens (-8.5%), reference file accessible on-demand.
 
 ---
 
@@ -133,23 +135,38 @@
 - [ ] **T16a.** Reclassify progressHorizon from auto → gated in garden.json
   Done when: garden.json progressHorizon = "gated". ✅ (done)
 
-- [ ] **T16b.** Fix session-summary capture + telemetry skill-scan regex
-  - session-summary extension writes prompt fragments, pasted hashes, half-sessions into PROGRESS.md
-  - telemetry SKILL_RE regex grabs backtick garbage (e.g., `gardening\`,` instead of `gardening`)
-  - Both are sloppy extraction patterns — upstream fix needed before gardening passes 5 and 7 can work with clean data
+- [~] **T16b.** Fix session-summary capture + telemetry skill-scan regex
+  - [x] Telemetry SKILL_RE: fixed (confirmed — clean ["gardening","plan-then-implement"], no backticks)
+  - [x] extractRecap: added **Changed:**/**Verified:**/**Next:** pattern match (structural > keyword fallback, but not root cause — old fallback already caught recaps)
+  - [~] Real root cause: session-summary writes an entry every turn regardless of value. See T16d.
   Done when: PROGRESS.md entries are proper summaries; harness.skills contains clean skill names.
 
-- [ ] **T16c.** Stats hit-count reset after regex fix
+- [x] **T16c.** Stats hit-count reset after regex fix
   - Current counts (GL-006=26, GL-008=13, GL-012=14) are inflated by meta-conversation that built/ tested the system
   - Contaminated counts compound through operations (e.g., 13+13=26 merge was one debugging echo doubled)
   - After T16b: zero all hit counts, let real usage re-accumulate before decay/demote goes live
   Done when: All lesson-stats.json hit counts reset to 0; confirmed after one real-work session.
 
+- [ ] **T16d.** Session-summary entry gating — don't write an entry for every turn
+  - Root cause of 106-entry PROGRESS.md bloat: session-summary fires on every turn_end, creating entries for research turns, bare tool calls, reload-prompt echoes — turns with no recap and no substantive change
+  - Fix: add a "worth an entry?" filter — skip the rolling-entry write when the turn had no recap block AND no tool-execution results
+  - Not on the boot-payload critical path (pass 5 compacts legacy regardless), but keeps future PROGRESS lean
+  Done when: Reload prompts and bare research turns produce no new PROGRESS.md entries.
+
 ---
-  - promote-lessons routes to gardening
-  - First promoted lesson documents migration
-  - Commit
-  Done when: All criteria pass.
+
+## Remaining work — two piles
+
+### Batch (mechanical, group review)
+
+- [ ] **T16d.** Session-summary entry gating — skip PROGRESS.md write for turns with no recap AND no tool-execution results. Keeps post-pass-5 PROGRESS lean.
+- [ ] STANDARDS.md diet (diminishing returns — 930 tokens, mostly tight tables. Only worth if a relocate pattern with authoring.md proves clean.)
+
+### Microscope (novel/irreversible, full scrutiny each)
+
+- [ ] First live DriftScout gardening run — real project memory, real pending lessons
+- [ ] First Discord push (T18-20) — first outbound side-effect
+- [ ] Mac convergence + Syncthing (Phase 5) — first two-machine sync
 
 ---
 

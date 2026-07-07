@@ -15,7 +15,7 @@ Your FIRST actions in every new session, before responding to my request:
 
 1. Read these files in order (skip ones that don't exist — don't error):
    - `~/.pi/agent/STANDARDS.md` — default acceptance gates and capability mapping
-   - `~/.pi/agent/LESSONS.md` — cross-project danger zones, gotchas, anti-patterns (skip if absent)
+   - `~/.pi/agent/LESSONS.md` — cross-project danger zones, gotchas, anti-patterns (skip if absent). When a lesson shapes your approach, cite its ID, e.g. "per GL-001".
    - Nearest `AGENTS.md` walking up from cwd (project preamble + overrides; absent in most projects — global AGENTS.md applies)
    - `<project>/STANDARDS.md` — project-specific gates (overrides global; skip if absent)
    - `<project>/VISION.md` — what this app is, who it's for, what problem it solves; includes domain glossary
@@ -36,9 +36,7 @@ Do not skip step 4. The brief context report tells me you've actually loaded the
 - If we drift from the current `PLAN.md`, surface that and ask whether to update the plan before drifting further.
 
 ## Memory protocol — session end
-- Append a 2-3 sentence summary to `PROGRESS.md` before exit, formatted as `## YYYY-MM-DD HH:MM — <summary>`.
-- If you discovered a non-obvious project-specific pattern, danger zone, or gotcha, propose adding it to `LESSONS.md` and wait for my approval.
-- Once the session-summary and extract-patterns hooks are active, those will handle this automatically. Until then, do it manually.
+- Session-summary and extract-patterns hooks handle PROGRESS.md and LESSONS.md automatically.
 
 ## Operating principles
 
@@ -93,22 +91,14 @@ Keep each line to one sentence. Skills may append sections (e.g., `plan-then-imp
 
 Skip the recap for short conversational replies and quick clarifications.
 
-## File layout reference
+## Reference files
 
-**Global** (`~/.pi/agent/`):
-- `AGENTS.md` — this file
-- `STANDARDS.md` — default gates + capability mapping
-- `LESSONS.md` — cross-project gotchas, danger zones, anti-patterns
-- `skills/` — global skills, invocable as `/skill:name`
+These files are not loaded every session — read them on-demand when the trigger applies.
 
-**Per project** (`<project>/`):
-- `AGENTS.md` — project preamble overrides (create only when overriding global defaults)
-- `STANDARDS.md` — project gate overrides (create only when overriding global defaults)
-- `VISION.md` — what the app is
-- `LANGUAGE.md` — domain glossary (legacy; glossary now in VISION.md)
-- `PLAN.md` — current phase and approach
-- `TASKS.md` — task list with checkboxes
-- `PROGRESS.md` — rolling session summaries
-- `LESSONS.md` — danger zones, gotchas, mock maps
-- `.agent/tasks/T-XXX/` — per-task contracts and artifacts (once contract-gen is active)
-- `.agent/archive/` — historical PLAN.md snapshots archived on merge/PR success
+- **When writing, editing, or debugging a skill or extension**, read
+  `~/.pi/agent/references/authoring.md` for the full file layout reference,
+  skill frontmatter format, and extension patterns.
+
+The file layout reference was relocated from this document to reduce per-session
+boot cost. Everything that was there is still there — just on the shelf instead
+of in the backpack.
