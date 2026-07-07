@@ -1,4 +1,4 @@
-<!-- When a lesson shapes your approach, cite its ID in your reply, e.g. "per GL-001". -->
+<!-- When a lesson shapes your approach, cite its ID in your reply, e.g. "per GL-000". -->
 
 # Cross-Project Lessons
 
@@ -12,7 +12,7 @@
 
 ## Gotchas
 
-- GL-003 [anchor] Pi `edit` tool whitespace sensitivity — The `oldText` must match exactly including line endings. Windows CRLF vs LF differences cause silent failures. When an edit fails to find text, check line endings first.
+- GL-003 Pi `edit` tool whitespace sensitivity — The `oldText` must match exactly including line endings. Windows CRLF vs LF differences cause silent failures. When an edit fails to find text, check line endings first.
 - GL-004 `git branch --merged` includes current branch — The `*` prefix on the current branch line is not a grep-friendly marker. Parse output by dropping lines starting with `*` and the base branch name, rather than grepping.
 
 ## Decisions made
@@ -24,7 +24,7 @@
 
 - GL-007 Don't jam new features into existing skills — plan-then-implement should not absorb branch creation, approach exploration, or review workflows. Each concern gets its own skill. Skills reference each other at integration points (one-line invocations), not by merging text.
 - GL-008 Don't create a new config file when AGENTS.md frontmatter works — Same pattern as above. Frontmatter is machine-parseable, human-readable, and already loaded at session start. Adding `.agent/config` creates a second convention with no benefit.
-- GL-009 [anchor] Don't write verification claims without evidence — "Tests pass" is not verification; the test output in the message is. "Grepped for keywords" is not verification; the matched line with line number is. This applies across every project, every session.
+- GL-009 Don't write verification claims without evidence — "Tests pass" is not verification; the test output in the message is. "Grepped for keywords" is not verification; the matched line with line number is. This applies across every project, every session.
 
 ## Always do
 

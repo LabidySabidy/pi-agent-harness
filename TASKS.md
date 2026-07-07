@@ -70,7 +70,7 @@
 
 ## Phase 1 — Telemetry + lesson identity (on branch)
 
-- [ ] **T10.** Create `agent/extensions/telemetry/index.ts`
+- [x] **T10.** Create `agent/extensions/telemetry/index.ts`
   - `session_start`: boot payload measurement + journal recovery
   - `agent_end`: upsert running record (cumulative tokens, skills, lesson citations, gate results)
   - `session_shutdown`: mark record finalized
@@ -81,7 +81,7 @@
   - Fail-open: errors logged to `.agent/telemetry-errors.log`
   Done when: Two test sessions produce records; deliberate `per GL-001` citation increments stats.
 
-- [ ] **T11.** Migrate global LESSONS.md to GL-NNN IDs
+- [x] **T11.** Migrate global LESSONS.md to GL-NNN IDs
   - Backup to `~/.pi/.agent/archive/pre-gardening-YYYYMMDD/`
   - Each bullet → `- GL-NNN [flags] <body ≤3 lines>`
   - Sequential zero-padded IDs
@@ -91,7 +91,7 @@
   - Seed `~/.pi/agent/lesson-stats.json`
   Done when: Every entry parses; IDs unique; stats seeded; backup exists.
 
-- [ ] **T12.** Acceptance
+- [~] **T12.** Acceptance
   - Two test sessions produce boot + running records
   - Terminal-kill mid-session → next boot's journal recovery finalizes orphaned record
   - Inject thrown error → session proceeds; error logged
@@ -154,6 +154,13 @@
 
 - [ ] **T20.** Schedule via `schtasks` — Sundays 09:00
   Done when: One manual run + one scheduled run deliver to channel.
+
+---
+
+## Phase 4.5 — CRLF cleanup (deferred to before Mac clone)
+
+- [ ] **T21.** Add `.gitattributes` with `* text=auto eol=lf`
+  Done when: `.gitattributes` committed; `git add --renormalize .` shows no CRLF→LF churn on any tracked text file.
 
 ---
 
