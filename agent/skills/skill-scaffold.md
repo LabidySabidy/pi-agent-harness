@@ -60,6 +60,7 @@ If I've given you a one-paragraph brief, skip to step 5 and confirm constraints.
 2. **PLAN.md** — phases for v1 only. Don't plan v2/v3 here. Phases small and end-to-end useful.
 3. **TASKS.md** — concrete tasks for Phase 1 of v1 only. Don't fill in future phases. Every task must have a `Done when:` criterion. `Estimate:` is optional.
 4. **PROGRESS.md** — empty template, ready for first session-end summary.
+5. **DECISIONS.md** — ADR-lite template. No entries yet — decisions get added when a non-trivial choice (tech stack, pattern, architecture) is made during implementation.
 
 For each file: show proposed content → wait for approval → write to project root → **verify the write landed** (read it back, confirm content matches). If the read returns empty/wrong content, the write tool failed silently (cross-drive issue). Retry with:
 ```bash
