@@ -33,11 +33,20 @@ const STOP_WORDS = new Set([
   "need", "want", "like", "get", "got", "make", "let",
 ]);
 
+function stem(word: string): string {
+  // Simple suffix-stripping — enough for trigger matching, not general NLP
+  return word
+    .replace(/(?:ing|ed|es|s)$/, "")
+    .replace(/(?:tion|ment|ness|able|ible)$/, "")
+    .replace(/e$/, ""); // strip trailing e after other suffixes removed
+}
+
 function contentWords(text: string): string[] {
   return text
     .toLowerCase()
     .split(/[\s,;:.!?"'—\-()\[\]{}]+/)
-    .filter((w) => w.length >= 3 && !STOP_WORDS.has(w));
+    .filter((w) => w.length >= 3 && !STOP_WORDS.has(w))
+    .map(stem);
 }
 
 // ── Phrase extraction ────────────────────────────────────────────────────
@@ -218,22 +227,29 @@ export default function skillRouter(pi: ExtensionAPI) {
   const routes = loadRoutes();
   let pendingRoute: string | null = null;
 
-  pi.on("input", async (event) => {
-    pendingRoute = matchRoute(event.text, routes);
+  pi.on("input", async (event, ctx) => {
+    // Skip if user typed a slash command or explicit skill invocation
+    if (/^\s*\/[a-z]/.test(event.text)) return;
+
+    const route = matchRoute(event.text, routes);
+    pendingRoute = route;
+
+    if (route) {
+      ctx.ui.notify(`skill-router → ${route}`, "info");
+    }
   });
 
-  pi.on("before_agent_start", async () => {
+  pi.on("before_agent_start", async (event) => {
     if (!pendingRoute) return;
 
     const skill = pendingRoute;
     pendingRoute = null;
 
+    // Inject into system prompt — guaranteed model visibility
     return {
-      message: {
-        customType: "skill-router",
-        content: `The user's request matches skill: ${skill}. Load and follow /skill:${skill}.`,
-        display: false,
-      },
+      systemPrompt:
+        event.systemPrompt +
+        `\n\n[SKILL ROUTING] The user's request matches skill: ${skill}. Invoke /skill:${skill} now.`,
     };
   });
 }
