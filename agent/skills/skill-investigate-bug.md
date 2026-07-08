@@ -1,15 +1,6 @@
 ---
 name: investigate-bug
-description: Structured defect investigation — gather, reproduce, root-cause, TDD fix plan, implement
-triggers:
-  - "investigate"
-  - "debug"
-  - "why is this failing"
-  - "broken"
-  - "regression"
-  - "bug"
-  - "defect"
-  - "trace"
+description: Structured 8-step defect investigation — gather, reproduce, root-cause with evidence, TDD fix plan, implement. Use when something is broken, failing, regressed, stopped working, was working before, or has a failing test.
   - "stopped working"
   - "was working before"
 ---
@@ -19,7 +10,7 @@ triggers:
 ## When to load
 - I describe something broken, failing, or behaving unexpectedly
 - I say "investigate," "debug," "trace," "root cause," "why is this failing"
-- The classifier-router routes a defect message here
+- The model self-selects this skill from its description when something is described as broken or failing
 
 ## What this skill does
 Walk through a structured 8-step defect investigation, ending with a TDD fix plan saved to disk before any fix is implemented.

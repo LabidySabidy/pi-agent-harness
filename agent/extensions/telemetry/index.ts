@@ -62,12 +62,11 @@ const LESSON_CITE_RE = /\b(GL|L)-(\d{3})\b/g;
 // Reserved non-lesson IDs that appear in header comments / examples
 const RESERVED_NON_LESSON_IDS = new Set(["GL-000"]);
 
+// Cache: valid lesson IDs parsed from LESSONS.md files (lazy, cleared per session)
+let _validLessonIdsCache: Set<string> | null = null;
+
 // Skill invocation regex: matches /skill:name patterns (letters + hyphens only, excludes backticks/parens/commas)
 const SKILL_RE = /\/skill:([a-zA-Z][a-zA-Z0-9-]*)/g;
-
-// Gate detection patterns
-const GATE_PASS_RE = /\b(?:gates?\s*(?:pass(?:ing|ed)?|green|clean)|all\s+(?:checks?\s+)?pass)\b/i;
-const GATE_FAIL_RE = /\b(?:gates?\s*(?:fail|red|broken)|(?:lint|test|build|type)\s+(?:fail|error))\b/i;
 
 // ─────────────────────────────────────────────────────────────────────────
 // Types
@@ -140,8 +139,6 @@ interface LessonStatsEntry {
   hits: number;
   last_used: string | null;
   device_last_hit: string | null;
-  decay: number;
-  confidence: number;
   added: string;
   category: string;
 }
@@ -365,11 +362,7 @@ function extractSkills(text: string): string[] {
   return [...skills];
 }
 
-function detectGates(text: string): string {
-  if (GATE_PASS_RE.test(text)) return "pass";
-  if (GATE_FAIL_RE.test(text)) return "fail";
-  return "unknown";
-}
+
 
 // ─────────────────────────────────────────────────────────────────────────
 // Text extraction from messages
@@ -393,6 +386,38 @@ function extractMessageText(msg: { role?: string; content?: unknown }): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
+// Valid lesson ID resolution
+// ─────────────────────────────────────────────────────────────────────────
+
+async function loadValidLessonIds(projectDir: string): Promise<Set<string>> {
+  if (_validLessonIdsCache) return _validLessonIdsCache;
+
+  const ids = new Set<string>();
+  const RE = /\b(GL|L)-(\d{3})\b/g;
+
+  const files = [
+    join(GLOBAL_AGENT_DIR, "LESSONS.md"),
+    join(projectDir, "LESSONS.md"),
+  ];
+
+  for (const filePath of files) {
+    try {
+      const content = await fs.readFile(filePath, "utf8");
+      let match: RegExpExecArray | null;
+      while ((match = RE.exec(content)) !== null) {
+        ids.add(`${match[1]}-${match[2]}`);
+      }
+      RE.lastIndex = 0;
+    } catch {
+      /* file may not exist */
+    }
+  }
+
+  _validLessonIdsCache = ids;
+  return ids;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // Lesson stats maintenance
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -402,10 +427,15 @@ async function updateLessonStats(
 ): Promise<void> {
   if (lessonIds.length === 0) return;
 
+  const validIds = await loadValidLessonIds(projectDir);
   const now = isoNow();
   const device = deviceName ?? os.hostname();
 
   for (const id of lessonIds) {
+    // Defense in depth: skip reserved IDs and non-existent lessons
+    if (RESERVED_NON_LESSON_IDS.has(id)) continue;
+    if (!validIds.has(id)) continue;
+
     const isGlobal = id.startsWith("GL-");
     const statsDir = isGlobal ? GLOBAL_AGENT_DIR : join(projectDir, ".agent");
     const statsPath = join(statsDir, LESSON_STATS_FILENAME);
@@ -430,8 +460,6 @@ async function updateLessonStats(
             hits: 1,
             last_used: now,
             device_last_hit: device,
-            decay: 1.0,
-            confidence: 0.5,
             added: now,
             category: "unknown",
           };
@@ -622,18 +650,15 @@ export default function telemetry(pi: ExtensionAPI) {
       if (msg.model) models.add(msg.model);
       const model = msg.model ?? ([...models].slice(-1)[0] ?? "unknown");
 
-      // ── Pattern scanning (citations / skills / gates) ──────────────
+      // ── Pattern scanning (citations / skills) ─────────────────────
       const rawText = extractMessageText(msg);
 
+      const turnCitations = extractLessonCitations(rawText);
       const lessonIds = new Set(state.cumulative.lessonHits);
-      for (const id of extractLessonCitations(rawText)) lessonIds.add(id);
+      for (const id of turnCitations) lessonIds.add(id);
 
       const skills = new Set(state.cumulative.skills);
       for (const skill of extractSkills(rawText)) skills.add(skill);
-
-      let gateStatus = state.cumulative.gates;
-      const detectedGate = detectGates(rawText);
-      if (detectedGate !== "unknown") gateStatus = detectedGate;
 
       // ── Turn index ─────────────────────────────────────────────────
       const turnIndex = (event.turnIndex ?? state.cumulative.turnIndex) + 1;
@@ -645,7 +670,7 @@ export default function telemetry(pi: ExtensionAPI) {
         "harness.session_id": state.currentSessionId,
         "harness.project": state.projectKey,
         "harness.device": deviceName ?? os.hostname(),
-        "harness.estimator": ESTIMATOR,
+        "harness.estimator": usage ? "api" : "chars4",
         "gen_ai.request.model": model,
         "gen_ai.usage.input_tokens": cumulativeInput,
         "gen_ai.usage.output_tokens": cumulativeOutput,
@@ -653,7 +678,7 @@ export default function telemetry(pi: ExtensionAPI) {
         "harness.usage.cache_write_tokens": cumulativeCacheWrite,
         "harness.lesson_hits": [...lessonIds].sort(),
         "harness.skills": [...skills].sort(),
-        "harness.gates": gateStatus,
+        "harness.gates": "unknown",
         turn_index: turnIndex,
       };
 
@@ -665,7 +690,7 @@ export default function telemetry(pi: ExtensionAPI) {
         cacheWriteTokens: cumulativeCacheWrite,
         lessonHits: [...lessonIds],
         skills: [...skills],
-        gates: gateStatus,
+        gates: "unknown",
         models: [...models],
         turnIndex,
       };
@@ -674,8 +699,8 @@ export default function telemetry(pi: ExtensionAPI) {
       // Append running record
       await appendLine(telemetryPath, JSON.stringify(record));
 
-      // Update lesson stats
-      await updateLessonStats([...lessonIds], projectDir).catch(() => {});
+      // Update lesson stats (per-turn delta only)
+      await updateLessonStats(turnCitations, projectDir).catch(() => {});
     } catch (err) {
       if (projectDir) {
         await logError(
@@ -716,7 +741,6 @@ export default function telemetry(pi: ExtensionAPI) {
       const lessonIds = new Set(state.cumulative.lessonHits);
       const skills = new Set(state.cumulative.skills);
       const models = new Set(state.cumulative.models);
-      let gateStatus = state.cumulative.gates;
 
       for (const entry of messages) {
         const inner = (entry as any).message ?? entry;
@@ -736,10 +760,9 @@ export default function telemetry(pi: ExtensionAPI) {
         newText += text + "\n";
       }
 
-      for (const id of extractLessonCitations(newText)) lessonIds.add(id);
+      const agentEndCitations = extractLessonCitations(newText);
+      for (const id of agentEndCitations) lessonIds.add(id);
       for (const skill of extractSkills(newText)) skills.add(skill);
-      const detectedGate = detectGates(newText);
-      if (detectedGate !== "unknown") gateStatus = detectedGate;
 
       // Only write if turn_end didn't already capture this turn
       const turnIndex = state.cumulative.turnIndex;
@@ -756,7 +779,7 @@ export default function telemetry(pi: ExtensionAPI) {
         "harness.session_id": state.currentSessionId,
         "harness.project": state.projectKey,
         "harness.device": deviceName ?? os.hostname(),
-        "harness.estimator": ESTIMATOR,
+        "harness.estimator": "api",
         "gen_ai.request.model": model,
         "gen_ai.usage.input_tokens": cumulativeInput,
         "gen_ai.usage.output_tokens": cumulativeOutput,
@@ -764,7 +787,7 @@ export default function telemetry(pi: ExtensionAPI) {
         "harness.usage.cache_write_tokens": cumulativeCacheWrite,
         "harness.lesson_hits": [...lessonIds].sort(),
         "harness.skills": [...skills].sort(),
-        "harness.gates": gateStatus,
+        "harness.gates": "unknown",
         turn_index: newTurn,
       };
 
@@ -775,13 +798,13 @@ export default function telemetry(pi: ExtensionAPI) {
         cacheWriteTokens: cumulativeCacheWrite,
         lessonHits: [...lessonIds],
         skills: [...skills],
-        gates: gateStatus,
+        gates: "unknown",
         models: [...models],
         turnIndex: newTurn,
       };
       await writeState(statePath, state);
       await appendLine(telemetryPath, JSON.stringify(record));
-      await updateLessonStats([...lessonIds], projectDir).catch(() => {});
+      await updateLessonStats(agentEndCitations, projectDir).catch(() => {});
     } catch (err) {
       if (projectDir) {
         await logError(

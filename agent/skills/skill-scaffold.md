@@ -1,15 +1,6 @@
 ---
 name: scaffold
-description: Bootstrap a new project — discovery flow, VISION/PLAN/TASKS files, GitHub repo, and live Vercel deploy
-triggers:
-  - "scaffold"
-  - "bootstrap"
-  - "new project"
-  - "init project"
-  - "starting a new app"
-  - "begin a new project"
-  - "build a new app"
-  - "new app idea"
+description: Bootstrap a genuinely new project (not features in existing ones) — discovery flow, VISION/PLAN/TASKS files, GitHub repo, and live Vercel deploy. Only for brand-new projects from scratch.
   - "got an idea for an app"
   - "create a new web app"
   - "spin up a new app"

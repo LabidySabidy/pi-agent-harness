@@ -1,15 +1,6 @@
 ---
 name: branch-hygiene
-description: Feature-branch start, PR creation, and cleanup — ensures every change is traceable via GitHub branches and PRs
-triggers:
-  - "branch"
-  - "wrap up"
-  - "merge this"
-  - "create PR"
-  - "PR this"
-  - "ready to merge"
-  - "ship it"
-  - "done with this branch"
+description: Feature-branch start, PR creation, branch cleanup — use when creating a branch, wrapping up, merging, creating a PR, shipping it, cleaning up branches, or closing out.
   - "finish this branch"
   - "clean up branches"
   - "new branch for"

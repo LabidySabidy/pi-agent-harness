@@ -1,12 +1,6 @@
 ---
 name: plan-then-implement
-description: Formalize the read-code → write-PLAN.md → execute pattern with TDD and acceptance gates
-triggers:
-  - "plan and implement"
-  - "build this feature"
-  - "add this feature"
-  - "implement this"
-  - "let's build"
+description: Read-code → write-PLAN.md → TDD per phase → acceptance gates. Use when asked to build a feature, add a feature, implement something, or plan and implement.
 ---
 
 # Skill: Plan Then Implement
@@ -14,7 +8,7 @@ triggers:
 ## When to load
 - I describe a feature I want built and the change spans more than one file or involves real logic
 - I explicitly invoke `/skill:plan-then-implement`
-- The classifier-router routes a substantive build request here
+- The model self-selects this skill from its description for substantive build requests
 
 ## What this skill does
 Codify the workflow that worked for the CSV export task: read codebase → write PLAN.md → get approval → execute phases with TDD → run STANDARDS.md gates → update PROGRESS.md.

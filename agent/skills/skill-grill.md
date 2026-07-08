@@ -1,13 +1,6 @@
 ---
 name: grill
-description: Adversarial design interrogation — walk the design tree before any non-trivial implementation
-triggers:
-  - "grill me"
-  - "poke holes"
-  - "red team"
-  - "stress test this"
-  - "what could go wrong"
-  - "before we build"
+description: Adversarial design interrogation — walk the design tree before non-trivial implementation. Use when asked to grill me, poke holes, red team, stress test, challenge a design, or find flaws.
 ---
 
 # Skill: Grill (Adversarial Design Interrogation)
@@ -15,7 +8,7 @@ triggers:
 ## When to load
 - I explicitly say "grill me," "poke holes," "red team this," or similar
 - I describe a non-trivial implementation plan and you sense ambiguity, hidden assumptions, or scope drift
-- The classifier-router routes a design/planning message here
+- The model self-selects this skill from its description when a design or plan is described
 
 ## What this skill does
 Force a shared design concept before any code is written. You play adversarial system architect, walking down branches of the design tree until either: (a) we have a coherent plan with explicit assumptions, or (b) we discover the plan is wrong and need to back up.

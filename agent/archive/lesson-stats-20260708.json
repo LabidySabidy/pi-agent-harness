@@ -1,0 +1,20 @@
+{
+  "GL-013": {
+    "hits": 15,
+    "last_used": "2026-07-08T17:21:00.294Z",
+    "device_last_hit": "Kasim-PC",
+    "decay": 1,
+    "confidence": 0.5,
+    "added": "2026-07-08T17:13:14.812Z",
+    "category": "unknown"
+  },
+  "GL-003": {
+    "hits": 4,
+    "last_used": "2026-07-08T17:19:44.289Z",
+    "device_last_hit": "Kasim-PC",
+    "decay": 1,
+    "confidence": 0.5,
+    "added": "2026-07-08T17:13:46.125Z",
+    "category": "unknown"
+  }
+}

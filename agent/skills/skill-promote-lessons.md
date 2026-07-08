@@ -1,12 +1,6 @@
 ---
 name: promote-lessons
-description: Review pending lesson candidates and promote accepted ones into LESSONS.md — low-friction, one-at-a-time review
-triggers:
-  - "promote lessons"
-  - "review pending lessons"
-  - "promote to lessons"
-  - "clean up pending lessons"
-  - "lessons review"
+description: DEPRECATED redirect stub — use gardening instead. If invoked, load skill-gardening.md.
 ---
 
 # Skill: Promote Lessons
@@ -17,8 +11,8 @@ Gardening replaces promote-lessons with a full memory management workflow:
 intake, merge, demote, compress, progress horizon, asset sweeps, break-in
 review, and reporting. All gated, all with --dry support.
 
-If you arrived here via the classifier-router: type `/skill:gardening` to
-begin, or just say "garden" and the router will route you there.
+If you arrived here via `/skill:promote-lessons`: type `/skill:gardening` to
+begin, or just say "garden" to switch to gardening.
 
 ---
 

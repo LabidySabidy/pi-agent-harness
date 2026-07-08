@@ -1,15 +1,6 @@
 ---
 name: spike
-description: Throwaway prototype to validate the riskiest technical assumption before committing to a full plan
-triggers:
-  - "spike"
-  - "prototype"
-  - "proof of concept"
-  - "feasibility"
-  - "throwaway"
-  - "throwaway script"
-  - "throwaway code"
-  - "can this even work"
+description: Throwaway prototype to validate the riskiest technical assumption before committing to a full plan. Use for a spike, prototype, proof of concept, feasibility check, throwaway script, or can-this-even-work question.
   - "does this even work"
   - "can we even"
   - "is it possible to"
@@ -44,7 +35,7 @@ triggers:
 - I describe uncertainty about whether something is technically feasible
 - I want to validate an API, library, data shape, or integration before committing to a plan
 - I say "not sure if," "wonder if," "can we even," or "before we build" about a technical approach
-- The classifier-router routes a feasibility/validation message here
+- The model self-selects this skill from its description for feasibility checks or uncertain assumptions
 
 ## What this skill does
 Identify the single riskiest technical assumption, write the smallest possible throwaway script that proves or disproves it, run it, and decide: proceed, pivot, or kill.

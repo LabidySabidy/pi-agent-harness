@@ -1,25 +1,11 @@
 {
-  "$comment": "Memory gardening config — governs /skill:gardening passes only. Has zero effect on interactive work, normal Pi sessions, commits, or any other skill.",
-  "$harnessRoot": "Resolve to ~/.pi (os.homedir()/.pi) at load time. All denied paths expand against this root once into absolute form. The deny-list is anchored to the harness, never cwd — works identically whether gardening runs from ~/.pi, a project directory, or anywhere else.",
+  "$comment": "Advisory config read by the gardening skill. Nothing in this file is code-enforced. Safety model: gardening only starts on a clean git tree (enforced by /gardening), and changes are reviewed via git diff before commit.",
 
   "budgets": {
     "$comment": "Token budgets for memory files. observeMode=true means budgets are measured but not enforced — compression skips until observeMode is false.",
     "observeMode": true,
     "globalBootTokens": 3670,
     "perProject": { "seedFromMeasured": true }
-  },
-
-  "decay": {
-    "$comment": "Lesson decay parameters. citedReset: decay resets to this on citation. ignoredFactor: multiplier per uncited session. candidateBelow: demote candidate threshold. graceSessions: new lessons immune to demotion for this many sessions.",
-    "citedReset": 1.0,
-    "ignoredFactor": 0.9,
-    "candidateBelow": 0.35,
-    "graceSessions": 3
-  },
-
-  "anchors": {
-    "$comment": "Anchor lessons are damage-preventing — they get extra scrutiny before modification.",
-    "inflationWarnPct": 25
   },
 
   "progress": {
@@ -40,44 +26,8 @@
     "sessionLogMaxAgeDays": 90
   },
 
-  "paths": {
-    "$comment": "Bidirectional gate — applies ONLY to gardening's automated passes. Never touches interactive work.",
-
-    "harnessRoot": null,
-    "$harnessRoot_note": "Set to resolve(os.homedir(), '.pi') at load time. All denied paths below are resolved against this root into absolute paths before any matching. This ensures the deny-list works identically whether gardening is running from ~/.pi, a project directory, or anywhere else on the filesystem.",
-
-    "denied": {
-      "$comment": "Protective (out): gardening must never delete or move files under these paths. Resolve BOTH sides to canonical absolute form — expand these prefixes against harnessRoot at load, resolve every fs target to absolute before comparing. Absolute-vs-absolute, always, no matter what cwd is.\n\nWorked example: cwd = C:\\Users\\Kasim Alam\\Projects\\DriftScout, harnessRoot = C:\\Users\\Kasim Alam\\.pi, denied prefix = agent/skills/ → expanded to C:\\Users\\Kasim Alam\\.pi\\agent\\skills\\. Target C:\\Users\\Kasim Alam\\.pi\\agent\\skills\\skill-grill.md resolves to ...\\agent\\skills\\skill-grill.md. startsWith(C:\\Users\\Kasim Alam\\.pi\\agent\\skills\\) = true → BLOCKED. Matches correctly from any cwd.",
-      "paths": [
-        "agent/skills/",
-        "agent/extensions/",
-        "agent/bin/",
-        "agent/sessions/",
-        "agent/AGENTS.md",
-        "agent/STANDARDS.md",
-        "agent/garden.json",
-        "auth.json",
-        ".git/"
-      ],
-      "rule": "Deny beats allow. At load: expand every denied path against harnessRoot to an absolute prefix. Before any fs write, move, or delete: path.resolve() the target to an absolute canonical path, then check startsWith against each expanded denied prefix. If any match, abort the operation and report. Apply this check in every automated pass: intake, merge, demote, compress, progress horizon, and all sweep passes. Pass 7 (break-in review) is exempt from this check because its edits are advisory-only and always human-applied — its targets are skill files on the deny-list by design. Pass 8 (report) writes only to allowed directories, checked separately."
-    },
-
-    "allowed": {
-      "$comment": "Preventive (in): gardening's transient artifacts (temp files, scratch work, generated reports) must land under these directories or scratchDir. Never the harness root or agent/.\n\nANCHORING ASYMMETRY (intentional): Denied paths resolve against harnessRoot (absolute, house-anchored) because they protect the shared harness core. Allowed paths are project-cwd-relative — when gardening runs in DriftScout, scratch lands in DriftScout/.agent/, not the harness's. Protection guards the shared house; scratch belongs to the room being cleaned.\n\nNOTE: this prevents gardening from spawning junk, but does NOT prevent you from cd-ing into the wrong directory and running commands there. That half is covered by .gitignore hygiene (Phase 0a/4.5).",
-      "directories": [
-        ".agent/",
-        ".agent/archive/",
-        ".agent/grill/",
-        ".agent/reports/"
-      ],
-      "scratchDir": ".agent/scratch/",
-      "reportsDir": ".agent/reports/",
-      "rule": "Symmetric to the deny check. Before any create or write of a transient artifact (report, temp file, scratch work): path.resolve() the target against the project cwd, then verify it starts with a resolved allowed directory or scratchDir prefix. If it does not, redirect the write to scratchDir/. This makes the 'keep junk out of the repo' half hard — same enforcement as the deny-list, opposite direction."
-    }
-  },
-
   "autonomy": {
-    "$comment": "Pass autonomy levels. 'auto' = runs without confirmation. 'gated' = presents changes and waits for per-pass y/n. Never batch gate confirmations — one pass, one decision. Pass 7 (break-in) is always advisory-only (targets are on deny-list).",
+    "$comment": "Pass autonomy levels. 'auto' = runs without confirmation. 'gated' = presents changes and waits for per-pass y/n. Never batch gate confirmations — one pass, one decision. Pass 7 (break-in) is always advisory-only.",
     "progressHorizon": "gated",
     "telemetryRotation": "auto",
     "archiveRollups": "auto",
