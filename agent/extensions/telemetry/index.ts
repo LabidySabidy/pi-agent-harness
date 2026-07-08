@@ -741,6 +741,7 @@ export default function telemetry(pi: ExtensionAPI) {
       const lessonIds = new Set(state.cumulative.lessonHits);
       const skills = new Set(state.cumulative.skills);
       const models = new Set(state.cumulative.models);
+      let sawUsage = false;
 
       for (const entry of messages) {
         const inner = (entry as any).message ?? entry;
@@ -749,6 +750,7 @@ export default function telemetry(pi: ExtensionAPI) {
 
         const usage = inner.usage;
         if (usage) {
+          sawUsage = true;
           cumulativeInput += usage.input ?? 0;
           cumulativeOutput += usage.output ?? 0;
           cumulativeCacheRead += usage.cacheRead ?? 0;
@@ -779,7 +781,7 @@ export default function telemetry(pi: ExtensionAPI) {
         "harness.session_id": state.currentSessionId,
         "harness.project": state.projectKey,
         "harness.device": deviceName ?? os.hostname(),
-        "harness.estimator": "api",
+        "harness.estimator": sawUsage ? "api" : "chars4",
         "gen_ai.request.model": model,
         "gen_ai.usage.input_tokens": cumulativeInput,
         "gen_ai.usage.output_tokens": cumulativeOutput,

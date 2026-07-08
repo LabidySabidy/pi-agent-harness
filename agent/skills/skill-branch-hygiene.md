@@ -1,6 +1,7 @@
 ---
 name: branch-hygiene
 description: Feature-branch start, PR creation, branch cleanup — use when creating a branch, wrapping up, merging, creating a PR, shipping it, cleaning up branches, or closing out.
+triggers:
   - "finish this branch"
   - "clean up branches"
   - "new branch for"
