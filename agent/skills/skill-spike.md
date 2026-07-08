@@ -1,6 +1,7 @@
 ---
 name: spike
 description: Throwaway prototype to validate the riskiest technical assumption before committing to a full plan. Use for a spike, prototype, proof of concept, feasibility check, throwaway script, or can-this-even-work question.
+triggers:
   - "does this even work"
   - "can we even"
   - "is it possible to"

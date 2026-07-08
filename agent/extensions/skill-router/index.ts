@@ -135,7 +135,7 @@ function parseSkillFile(filePath: string): SkillRoute | null {
 // Hardcoded synonyms for words that strongly indicate a skill but don't
 // appear in its description. A single synonym match routes to the skill.
 const SKILL_SYNONYMS: Record<string, string[]> = {
-  "investigate-bug": ["bug", "bugfix", "defect", "fix", "regression", "error", "crash"],
+  "investigate-bug": ["bug", "bugfix", "defect", "fix", "regression", "error", "crash", "broken", "stopped working"],
   "plan-then-implement": ["coding", "write code", "development"],
   "grill": ["review", "audit", "critique"],
   "gardening": ["organize", "tidy up", "cleanup"],
