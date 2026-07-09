@@ -15,12 +15,13 @@
  * Fields (OTel + harness):
  *   gen_ai.usage.input_tokens          harness.usage.cache_read_tokens
  *   gen_ai.usage.output_tokens         harness.usage.cache_write_tokens
- *   gen_ai.request.model               harness.boot.payload
- *   harness.lesson_hits                harness.skills
- *   harness.gates                      harness.device
- *   harness.git_sha                    harness.estimator
- *   harness.session_id                 ts
+ *   gen_ai.usage.cost                  harness.boot.payload
+ *   gen_ai.request.model               harness.lesson_hits
+ *   harness.skills                     harness.gates
+ *   harness.device                     harness.git_sha
+ *   harness.estimator                  harness.session_id
  *   harness.project                    harness.session_file
+ *   ts
  */
 
 import type { ExtensionAPI, AgentEndEvent, TurnEndEvent } from "@earendil-works/pi-coding-agent";
@@ -93,6 +94,7 @@ interface RunningRecord {
   "gen_ai.request.model": string;
   "gen_ai.usage.input_tokens": number;
   "gen_ai.usage.output_tokens": number;
+  "gen_ai.usage.cost": number;
   "harness.usage.cache_read_tokens": number;
   "harness.usage.cache_write_tokens": number;
   "harness.lesson_hits": string[];
@@ -108,6 +110,7 @@ interface SessionEndRecord {
   "harness.project": string;
   "gen_ai.usage.input_tokens": number;
   "gen_ai.usage.output_tokens": number;
+  "gen_ai.usage.cost": number;
   "harness.usage.cache_read_tokens": number;
   "harness.usage.cache_write_tokens": number;
   "harness.lesson_hits": string[];
@@ -127,6 +130,7 @@ interface TelemetryState {
     outputTokens: number;
     cacheReadTokens: number;
     cacheWriteTokens: number;
+    cost: number;
     lessonHits: string[];
     skills: string[];
     gates: string;
@@ -276,6 +280,7 @@ async function recoverJournal(
       "harness.project": prevProject,
       "gen_ai.usage.input_tokens": record["gen_ai.usage.input_tokens"] ?? 0,
       "gen_ai.usage.output_tokens": record["gen_ai.usage.output_tokens"] ?? 0,
+      "gen_ai.usage.cost": record["gen_ai.usage.cost"] ?? 0,
       "harness.usage.cache_read_tokens": record["harness.usage.cache_read_tokens"] ?? 0,
       "harness.usage.cache_write_tokens": record["harness.usage.cache_write_tokens"] ?? 0,
       "harness.lesson_hits": record["harness.lesson_hits"] ?? [],
@@ -325,6 +330,7 @@ function freshCumulative(): TelemetryState["cumulative"] {
     outputTokens: 0,
     cacheReadTokens: 0,
     cacheWriteTokens: 0,
+    cost: 0,
     lessonHits: [],
     skills: [],
     gates: "unknown",
@@ -637,12 +643,18 @@ export default function telemetry(pi: ExtensionAPI) {
       let cumulativeOutput = state.cumulative.outputTokens;
       let cumulativeCacheRead = state.cumulative.cacheReadTokens;
       let cumulativeCacheWrite = state.cumulative.cacheWriteTokens;
+      let cumulativeCost = state.cumulative.cost || 0;
 
       if (usage) {
         cumulativeInput += usage.input ?? 0;
         cumulativeOutput += usage.output ?? 0;
         cumulativeCacheRead += usage.cacheRead ?? 0;
         cumulativeCacheWrite += usage.cacheWrite ?? 0;
+        // cost is { input, output, cacheRead, cacheWrite } — sum for total
+        const c = usage.cost as { input?: number; output?: number; cacheRead?: number; cacheWrite?: number } | undefined;
+        if (c) {
+          cumulativeCost += (c.input ?? 0) + (c.output ?? 0) + (c.cacheRead ?? 0) + (c.cacheWrite ?? 0);
+        }
       }
 
       // ── Model ──────────────────────────────────────────────────────
@@ -674,6 +686,7 @@ export default function telemetry(pi: ExtensionAPI) {
         "gen_ai.request.model": model,
         "gen_ai.usage.input_tokens": cumulativeInput,
         "gen_ai.usage.output_tokens": cumulativeOutput,
+        "gen_ai.usage.cost": cumulativeCost,
         "harness.usage.cache_read_tokens": cumulativeCacheRead,
         "harness.usage.cache_write_tokens": cumulativeCacheWrite,
         "harness.lesson_hits": [...lessonIds].sort(),
@@ -688,6 +701,7 @@ export default function telemetry(pi: ExtensionAPI) {
         outputTokens: cumulativeOutput,
         cacheReadTokens: cumulativeCacheRead,
         cacheWriteTokens: cumulativeCacheWrite,
+        cost: cumulativeCost,
         lessonHits: [...lessonIds],
         skills: [...skills],
         gates: "unknown",
@@ -738,6 +752,7 @@ export default function telemetry(pi: ExtensionAPI) {
       let cumulativeOutput = state.cumulative.outputTokens;
       let cumulativeCacheRead = state.cumulative.cacheReadTokens;
       let cumulativeCacheWrite = state.cumulative.cacheWriteTokens;
+      let cumulativeCost = state.cumulative.cost || 0;
       const lessonIds = new Set(state.cumulative.lessonHits);
       const skills = new Set(state.cumulative.skills);
       const models = new Set(state.cumulative.models);
@@ -755,6 +770,10 @@ export default function telemetry(pi: ExtensionAPI) {
           cumulativeOutput += usage.output ?? 0;
           cumulativeCacheRead += usage.cacheRead ?? 0;
           cumulativeCacheWrite += usage.cacheWrite ?? 0;
+          const c = usage.cost as { input?: number; output?: number; cacheRead?: number; cacheWrite?: number } | undefined;
+          if (c) {
+            cumulativeCost += (c.input ?? 0) + (c.output ?? 0) + (c.cacheRead ?? 0) + (c.cacheWrite ?? 0);
+          }
         }
         if (inner.model) models.add(inner.model);
 
@@ -785,6 +804,7 @@ export default function telemetry(pi: ExtensionAPI) {
         "gen_ai.request.model": model,
         "gen_ai.usage.input_tokens": cumulativeInput,
         "gen_ai.usage.output_tokens": cumulativeOutput,
+        "gen_ai.usage.cost": cumulativeCost,
         "harness.usage.cache_read_tokens": cumulativeCacheRead,
         "harness.usage.cache_write_tokens": cumulativeCacheWrite,
         "harness.lesson_hits": [...lessonIds].sort(),
@@ -798,6 +818,7 @@ export default function telemetry(pi: ExtensionAPI) {
         outputTokens: cumulativeOutput,
         cacheReadTokens: cumulativeCacheRead,
         cacheWriteTokens: cumulativeCacheWrite,
+        cost: cumulativeCost,
         lessonHits: [...lessonIds],
         skills: [...skills],
         gates: "unknown",
@@ -832,6 +853,7 @@ export default function telemetry(pi: ExtensionAPI) {
         "harness.project": projectDir,
         "gen_ai.usage.input_tokens": state.cumulative.inputTokens,
         "gen_ai.usage.output_tokens": state.cumulative.outputTokens,
+        "gen_ai.usage.cost": state.cumulative.cost || 0,
         "harness.usage.cache_read_tokens": state.cumulative.cacheReadTokens,
         "harness.usage.cache_write_tokens": state.cumulative.cacheWriteTokens,
         "harness.lesson_hits": state.cumulative.lessonHits,
