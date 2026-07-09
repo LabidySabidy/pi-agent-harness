@@ -8,8 +8,8 @@ description: DEPRECATED redirect stub — use gardening instead. If invoked, loa
 **DEPRECATED — use /skill:gardening (Pass 1: Intake) instead.**
 
 Gardening replaces promote-lessons with a full memory management workflow:
-intake, merge, demote, compress, progress horizon, asset sweeps, break-in
-review, and reporting. All gated, all with --dry support.
+intake, merge, demote, compress, progress horizon, asset sweeps, and
+reporting. All gated, all with --dry support.
 
 If you arrived here via `/skill:promote-lessons`: type `/skill:gardening` to
 begin, or just say "garden" to switch to gardening.

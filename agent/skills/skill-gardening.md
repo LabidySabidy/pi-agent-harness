@@ -1,13 +1,13 @@
 ---
 name: gardening
-description: Config-driven memory gardening — review, clean, demote, compress, and report on agent memory files. Use when it's time to garden, review memory, clean up lessons, prune stale content, promote lessons, or when memory is over budget. Replaces promote-lessons.
+description: Tend the agent's memory files — intake pending lessons, merge duplicates, demote stale lessons, compress (observe-only), archive old progress, and sweep stale artifacts. Use when it's time to garden, review memory, clean up lessons, prune stale content, promote lessons, or when memory is over budget. Replaces promote-lessons.
 triggers:
   - "consolidate progress"
 ---
 
 # Skill: Gardening
 
-Config-driven memory gardening. Eight passes that review, clean, compress, and
+Config-driven memory gardening. Seven passes that review, clean, compress, and
 report on your agent's memory files. Configured via `agent/garden.json` (global)
 with per-project `.agent/garden.json` overrides.
 
@@ -130,6 +130,10 @@ If lesson-stats.json is missing/empty: skip this pass with
 
 **Autonomy:** gated
 
+> **Currently observe-only.** `garden.json.budgets.observeMode` is `true`, so this
+> pass never modifies LESSONS.md — it only measures the file against budget and
+> reports. Compression stays dormant until `observeMode` is set to `false`.
+
 Compress LESSONS.md if it exceeds budget. Rules:
 - Only runs if `garden.json.budgets.observeMode` is `false`. If true: report current
   size vs budget and skip.
@@ -201,32 +205,18 @@ Rules:
   move to `.agent/archive/sessions-YYYY-MM/`.
 - Reports in `.agent/reports/`: EXEMPT from sweeps. Reports are durable records.
 
-## Pass 7 — Break-in review
-
-**Autonomy:** n/a — advisory only
-
-Review skills with `break-in` status and ≥2 logged runs. Rules:
-- Read telemetry.jsonl for skill invocation history (scan `harness.skills` field
-  across running records).
-- For each break-in skill: summarize its invocation patterns, typical session
-  context, and any issues observed.
-- Propose SKILL.md edits (description, process refinements).
-- **All proposals are advisory.** Print proposals for human review and manual application.
-- Update break-in status in garden.json when a skill graduates.
-
-If telemetry.jsonl is missing: skip.
-
-## Pass 8 — Report
+## Pass 7 — Report
 
 **Autonomy:** auto
 
-Print a summary of the gardening session:
+Print a summary of the gardening session — gardening actions only:
 - Passes executed and their outcomes (changes made, skipped, failed).
-- Tokens freed per file (boot payload before/after).
+- Tokens freed by actual memory changes (LESSONS.md/PROGRESS.md boot payload before/after).
 - Action counts: lessons added, merged, demoted, compressed; files archived.
 - Auto-action ledger: every auto pass lists what it did with timestamps.
-- Pit-board line (one-line status for Phase 3 consumption):
-  `ctx ▓▓▓░░ 42% (60% ⚑) │ $0.83 │ pace +38% │ ☀️ gates`
+
+Cost, context-fill, and pace are NOT reported here — that observability lives in
+the separate weekly-report app, not in memory-tending.
 
 Write the full report to `reportsDir/gardening-report-YYYY-MM-DD-HHMM.md`.
 Reports are durable (exempt from sweep passes) and live under `.agent/reports/`.

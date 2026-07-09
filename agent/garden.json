@@ -27,7 +27,7 @@
   },
 
   "autonomy": {
-    "$comment": "Pass autonomy levels. 'auto' = runs without confirmation. 'gated' = presents changes and waits for per-pass y/n. Never batch gate confirmations — one pass, one decision. Pass 7 (break-in) is always advisory-only.",
+    "$comment": "Pass autonomy levels. 'auto' = runs without confirmation. 'gated' = presents changes and waits for per-pass y/n. Never batch gate confirmations — one pass, one decision.",
     "progressHorizon": "gated",
     "telemetryRotation": "auto",
     "archiveRollups": "auto",

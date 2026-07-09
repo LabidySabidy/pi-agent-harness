@@ -106,7 +106,9 @@ Every lesson has a stable ID. When a lesson shapes the agent's approach it cites
 
 ## Gardening & safety
 
-`/skill:gardening` (or `/gardening`) runs up to 8 maintenance passes over your memory files: intake pending lessons, merge duplicates, demote stale ones, compress over-budget files, archive old progress entries, sweep stale artifacts, review break-in skills, and report. Judgment passes are gated — one `y/n` per pass, never batched.
+`/skill:gardening` (or `/gardening`) runs up to 7 maintenance passes over your memory files: intake pending lessons, merge duplicates, demote stale ones, compress over-budget files, archive old progress entries, sweep stale artifacts, and report. Judgment passes are gated — one `y/n` per pass, never batched.
+
+Compress is currently **observe-only**: while `garden.json → budgets.observeMode` is `true` it measures `LESSONS.md` against budget but never rewrites it. Gardening tends memory and nothing else — skill-efficiency review and cost/context observability live in the separate weekly-report app, not here.
 
 Safety is **git**, not a hand-rolled guard:
 
