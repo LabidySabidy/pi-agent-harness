@@ -53,6 +53,13 @@ function appendText(content: unknown, text: string): unknown {
 }
 
 export default function (pi: ExtensionAPI) {
+  // Workspace-divergent bypass: keep the app-development workspace (pi-web)
+  // completely free of study-fatigue guardrails.
+  const cwd = process.cwd().replace(/\\/g, "/");
+  if (cwd.includes("pi-web")) {
+    return; // silent bypass — register no hooks
+  }
+
   // fresh 30-minute segment for every session lifecycle (startup/new/resume/reload)
   pi.on("session_start", () => {
     sessionStartTime = Date.now();
