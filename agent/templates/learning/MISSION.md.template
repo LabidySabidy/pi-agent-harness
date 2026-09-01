@@ -1,0 +1,33 @@
+# Mission — <Topic / Codebase Name>
+
+> Grounds every lesson in a real, personal reason (Matt Pocock: learn by building toward a
+> concrete destination, not by consuming tutorials). Fill once at scaffold time; re-read
+> before every session so lessons stay tethered to the "why".
+
+## Destination
+
+> The concrete thing I will be able to build or do at the end of the 20 hours.
+> Not "understand X" — a deliverable.
+
+- **I will be able to:** <e.g., "read the auth module and add a new login provider without help">
+- **Proof-of-skill artifact:** <the real thing I'll produce — a PR, a working feature, a refactor>
+
+## Why this matters (now)
+
+> The personal stake. Without this, sessions drift into passive reading.
+
+- **Driving project / pain:** <the actual codebase or task that makes this urgent>
+- **Cost of not learning it:** <what stays broken / blocked>
+
+## Baseline
+
+> Honest current state, in my own words. Feeds the SCHEMA cognitive baseline.
+
+- **I can already:** <list>
+- **I cannot yet:** <list>
+
+## Commitment
+
+- **Time budget:** 20 hours
+- **Cadence:** <e.g., 45-minute sessions, 4x/week>
+- **Ground rule:** <e.g., "no tutorial videos unless I'm stuck and have already tried for 30 minutes">

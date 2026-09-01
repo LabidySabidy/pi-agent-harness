@@ -1,0 +1,72 @@
+# SCHEMA — <Topic / Codebase Name>
+
+> The transparent, flat-file cognitive database for this learning mission.
+> One card per concept. Skills and extensions read/write this file directly —
+> never delete cards; mutate the badge, fields, and JSON telemetry blocks in place.
+> Status badges: 🟥 Weak · 🟨 Fair · 🟩 Good · 🟦 Mastered · ⬜ Unmeasured
+
+## 1. Cognitive Baseline
+
+> Activating prior knowledge before instruction improves encoding (spreading activation /
+> retrieval practice). Fill once at scaffold time; revisit whenever a concept moves a badge.
+
+- **What I already know about this topic:** <free-form, my own words>
+- **Concepts I can already explain without notes:** <list>
+- **Existing mental models / analogies:** <e.g., "threads are like restaurant tables">
+- **Where I'm shaky (self-assessed):** <list>
+
+## 2. Schema Taxonomy
+
+> Concept-level proficiency. Each concept is a card below. The badge encodes current state;
+> the "my own words" field is the Feynman artifact that earns a badge upgrade.
+> Badge ladder: ⬜ Unmeasured → 🟥 Weak → 🟨 Fair → 🟩 Good → 🟦 Mastered.
+
+<!-- CONCEPT CARD — duplicate per concept; keep the name lowercase-hyphen -->
+### ⬜ <concept-name>
+
+- **Status:** ⬜ Unmeasured
+- **Definition (my own words):** <blank — fill during recitation, no jargon>
+- **Connections:** <related concepts, and concepts this one depends on>
+- **SM-2 telemetry:**
+  - `last_tested`: —
+  - `next_review`: —
+  - `interval`: 0
+  - `ease_factor`: 2.5
+  - `repetitions`: 0
+- **Misconceptions:** <registry IDs, e.g. MIS-001>
+
+<!-- /CONCEPT CARD -->
+
+## 3. Misconception Registry
+
+> Log of uncorrected assumptions surfaced during Socratic grilling. Append rows, never delete.
+> A misconception is "resolved" only when I explain the correct model in my own words.
+
+| ID | Concept | Misconception (what I believed) | Corrected model (my own words) | Status | Date |
+|----|---------|---------------------------------|-------------------------------|--------|------|
+| MIS-001 | <concept> | <what I got wrong> | <blank until resolved> | open | <YYYY-MM-DD> |
+
+## 4. SM-2 Spaced Telemetry
+
+> Per-concept spaced-repetition state. Extensions mutate these fields after each grill/recitation.
+> Defaults: ease_factor 2.5, interval 0, repetitions 0. Reviews are scheduled on `next_review`.
+
+| Concept | last_tested | next_review | interval (days) | ease_factor | repetitions |
+|---------|-------------|-------------|-----------------|-------------|-------------|
+| <concept-name> | — | — | 0 | 2.5 | 0 |
+
+## Telemetry Contract
+
+> Machine-readable updates. The grill/recitation skills emit JSON blocks like the one below at
+> the end of a turn; downstream extensions parse them and write the fields back into this file.
+> `status` is a bare emoji (🟥/🟨/🟩/🟦). `last_tested` and `next_review` are derived by the
+> extension (last_tested = today, next_review = today + interval days). Keep keys stable.
+
+```json
+{
+  "concept": "<concept-name>",
+  "status": "🟨",
+  "sm2": { "interval": 2, "ease_factor": 2.5, "repetitions": 1 },
+  "misconception": { "id": "MIS-001", "description": "<the specific wrong assumption>", "status": "open" }
+}
+```

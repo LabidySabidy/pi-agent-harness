@@ -1,0 +1,47 @@
+# Plan — 20-Hour Learning Sequence: <Topic / Codebase Name>
+
+> The Josh Kaufman 20-hour roadmap: deconstruct → sequence → cut. Atomic sub-skills only.
+> One phase at a time; revisit the plan after each phase, never mid-phase.
+
+## Target Skill
+
+<one sentence — the skill this plan builds, matching the MISSION.md destination>
+
+## 20-Hour Deconstruction
+
+> Break the skill into atomic sub-skills (the smallest unit you can practice in one sitting).
+> Each row = one sub-skill with an hour budget that sums to ~20.
+
+| # | Sub-skill | Why it matters | Hours |
+|---|-----------|----------------|-------|
+| 1 | <sub-skill> | <how it serves the destination> | <n> |
+
+## Sequenced Roadmap
+
+> Ordered phases. Each phase ends with a verifiable checkpoint, never just "watched a video."
+
+1. **Phase 1 — <name>:** <what I can do at the end>
+2. **Phase 2 — <name>:** <what I can do at the end>
+
+## Cut List
+
+> Strict exclusions to protect working memory — the things I will *not* learn now, and why.
+> Anything not on the roadmap and not required for the destination goes here.
+
+- **Cut:** <thing> — <why it's out of scope for these 20 hours>
+- **Defer (maybe later):** <thing> — <when I'd revisit it>
+
+## Checkpoints
+
+> Verifiable success gates per phase. Each is a yes/no or a concrete artifact.
+
+- [ ] Phase 1: <criterion>
+- [ ] Phase 2: <criterion>
+
+## Current step
+
+<which phase is active, or "not started">
+
+## Notes
+
+<rolling notes — what worked, what didn't, dead ends>
