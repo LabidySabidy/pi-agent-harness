@@ -29,3 +29,9 @@ agent/LESSONS.md
 agent/lesson-stats.json
 agent/AGENTS.md
 weekly-report/
+
+# Generated state / local secrets
+agent/models-store.json
+agent/web-push.json
+agent/whisper-vtt.json
+agent/learning-demo/
