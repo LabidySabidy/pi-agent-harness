@@ -31,6 +31,18 @@ const VERIFY_PATTERNS: RegExp[] = [
   /(^|[\s;&|])(pytest|ruff|mypy|flake8|eslint|vitest|jest|checkstyle)(\s|$)/,
 ];
 
+// Failure signals in output text. If any matches, do NOT collapse — the shell
+// may still have exited 0 (e.g. `cmd; echo "EXIT: $?"` swallows the real exit
+// code). Erring toward not-collapsing is safe: worst case we lose the collapse,
+// never report a real failure as passed.
+const FAILURE_HINTS: RegExp[] = [
+  /\bEXIT:\s*[1-9]\d*\b/, // the model's own exit-code echo idiom
+  /\berrors?\b/i, // "error TS2365", "Error:", "errors"
+  /\bfail(?:ed|ure)?\b/i, // "failed", "failure", "FAILED"
+  /\baborted\b/i,
+  /\btimed out\b/i,
+];
+
 export default function bashQuiet(pi: ExtensionAPI): void {
   pi.on("tool_result", (event, _ctx) => {
     if (event.toolName !== "bash" || event.isError) return;
@@ -49,6 +61,8 @@ export default function bashQuiet(pi: ExtensionAPI): void {
           : (event.content ?? [])
               .map((c) => (c.type === "text" ? c.text : ""))
               .join("");
+
+      if (FAILURE_HINTS.some((re) => re.test(fullText))) return; // leave failures untouched
 
       const lines = fullText
         ? fullText.replace(/\n$/, "").split("\n").length
