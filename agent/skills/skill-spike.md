@@ -1,6 +1,6 @@
 ---
 name: spike
-description: Throwaway prototype to validate the riskiest technical assumption before committing to a full plan. Use for a spike, prototype, proof of concept, feasibility check, throwaway script, or can-this-even-work question.
+description: Throwaway proof-of-concept to validate that an approach is feasible before committing to a plan. Load when asked "can this even work" or wanting a spike/prototype/feasibility check. Not for diagnosing an actual failure (investigate-bug) or building the real feature (plan-then-implement).
 ---
 
 # Skill: Spike (Technical Feasibility Validation)

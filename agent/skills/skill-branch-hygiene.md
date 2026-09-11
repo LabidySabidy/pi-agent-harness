@@ -1,6 +1,6 @@
 ---
 name: branch-hygiene
-description: Feature-branch start, PR creation, branch cleanup — use when creating a branch, wrapping up, merging, creating a PR, shipping it, cleaning up branches, or closing out.
+description: Git branch and PR lifecycle — start a feature branch, open/merge a PR, or clean up merged branches. Load when the user asks to branch, wrap up, ship, or close out. Not for planning or building the work itself (plan-then-implement).
 ---
 
 # Skill: Branch Hygiene

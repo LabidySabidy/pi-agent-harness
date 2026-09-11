@@ -1,6 +1,6 @@
 ---
 name: plan-then-implement
-description: Read-code → write-PLAN.md → TDD per phase → acceptance gates. Use when asked to build a feature, add a feature, implement something, or plan and implement.
+description: Plan and implement a feature in an existing codebase — read code, write PLAN.md, TDD per phase, run acceptance gates. Load when asked to build or add a feature to an existing project. Not for a brand-new project (scaffold), a defect (investigate-bug), or a feasibility spike (spike).
 ---
 
 # Skill: Plan Then Implement
