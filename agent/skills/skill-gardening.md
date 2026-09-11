@@ -1,6 +1,6 @@
 ---
 name: gardening
-description: Tend the agent's memory files — intake pending lessons, merge duplicates, demote stale lessons, compress (observe-only), archive old progress, and sweep stale artifacts. Use when it's time to garden, review memory, clean up lessons, prune stale content, promote lessons, or when memory is over budget. Replaces promote-lessons.
+description: Tend the agent's memory files — intake pending lessons, merge duplicates, demote stale lessons, compress (observe-only), archive old progress, and sweep stale artifacts. Use when it's time to garden, review memory, clean up lessons, prune stale content, promote lessons, or when memory is over budget.
 ---
 
 # Skill: Gardening
