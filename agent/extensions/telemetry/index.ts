@@ -170,6 +170,20 @@ let contextFilesTokens = 0;
 let skillsTokens = 0;
 let lastProviderUsage: { input: number; output: number; cacheRead: number; cacheWrite: number; totalTokens: number } | null = null;
 
+/** Extract LLM-facing messages from the current session branch (for /tokens). */
+function sessionMessages(ctx: any): unknown[] {
+  try {
+    const entries = ctx?.sessionManager?.buildContextEntries?.() ?? [];
+    const msgs: unknown[] = [];
+    for (const e of entries as Array<{ type?: string; message?: unknown }>) {
+      if (e?.type === "message" && e?.message) msgs.push(e.message);
+    }
+    return msgs;
+  } catch {
+    return [];
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────
@@ -962,18 +976,12 @@ export default function telemetry(pi: ExtensionAPI) {
         const win = usage?.contextWindow ?? 0;
         const pct = usage?.percent ?? null;
 
-        const b = lastBuckets ?? {
-          userText: 0,
-          skillBlocks: 0,
-          readResults: 0,
-          bashResults: 0,
-          otherToolResults: 0,
-          thinking: 0,
-          toolCallArgs: 0,
-          assistantText: 0,
-        };
-        const sum =
-          BUCKET_KEYS.reduce((s, k) => s + b[k], 0) + systemPromptTokens;
+        // Bucket the CURRENT session context directly — self-contained, so
+        // /tokens works even before the first LLM call of this session.
+        const b = bucketMessages(sessionMessages(ctx));
+        const sysTokens = charsToTokens(ctx.getSystemPrompt?.()?.length ?? 0);
+
+        const sum = BUCKET_KEYS.reduce((s, k) => s + b[k], 0) + sysTokens;
 
         const lines: string[] = [];
         lines.push(
@@ -981,7 +989,7 @@ export default function telemetry(pi: ExtensionAPI) {
             (pct != null ? ` (${pct.toFixed(1)}%)` : ""),
         );
         lines.push("");
-        lines.push(`System prompt: ${systemPromptTokens.toLocaleString()}`);
+        lines.push(`System prompt: ${sysTokens.toLocaleString()}`);
         lines.push(`  contextFiles: ${contextFilesTokens.toLocaleString()}`);
         lines.push(`  skills: ${skillsTokens.toLocaleString()}`);
         lines.push("");
