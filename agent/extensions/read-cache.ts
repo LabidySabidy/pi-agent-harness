@@ -14,20 +14,9 @@
  * are never cached — they pass through unchanged.
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { readFileSync, appendFileSync } from "node:fs";
-import { resolve, join } from "node:path";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { createHash } from "node:crypto";
-import { homedir } from "node:os";
-
-// Temporary diagnostic — remove once read-cache is confirmed working.
-const DEBUG_LOG = join(homedir(), ".pi", "agent", ".read-cache-debug.log");
-function dbg(msg: string): void {
-  try {
-    appendFileSync(DEBUG_LOG, `${new Date().toISOString()} ${msg}\n`);
-  } catch {
-    /* ignore */
-  }
-}
 
 interface CacheEntry {
   hash: string;
@@ -35,7 +24,6 @@ interface CacheEntry {
 
 export default function readCache(pi: ExtensionAPI): void {
   const cache = new Map<string, CacheEntry>();
-  dbg("LOADED");
 
   const invalidatePath = (p: string) => {
     const prefix = p + "::";
@@ -51,7 +39,6 @@ export default function readCache(pi: ExtensionAPI): void {
         offset?: number;
         limit?: number;
       };
-      dbg(`READ input=${JSON.stringify(input)} cwd=${ctx.cwd}`);
       if (typeof input.path !== "string") return;
 
       // Never cache image results (the model needs the actual image bytes).
@@ -63,14 +50,12 @@ export default function readCache(pi: ExtensionAPI): void {
       try {
         hash = createHash("sha256").update(readFileSync(absPath)).digest("hex");
       } catch {
-        dbg(`  readFileSync failed for ${absPath}`);
         return; // can't hash — leave the read untouched
       }
 
       const key = `${absPath}::${input.offset ?? 0}::${input.limit ?? ""}`;
       const cached = cache.get(key);
       if (cached && cached.hash === hash) {
-        dbg(`  HIT key=${key} size=${cache.size}`);
         return {
           content: [
             {
@@ -80,7 +65,7 @@ export default function readCache(pi: ExtensionAPI): void {
           ],
         };
       }
-      dbg(`  MISS key=${key} size=${cache.size} (wasCached=${!!cached} hashEq=${cached ? cached.hash === hash : "n/a"})`);
+
       cache.set(key, { hash });
       return; // first read: keep the original content
     }
@@ -99,8 +84,5 @@ export default function readCache(pi: ExtensionAPI): void {
   // content that's no longer visible. Clear the whole cache. (Fork/switch
   // replace the extension instance with a fresh one, and tree summarization
   // does not drop entries from context, so only compaction needs clearing.)
-  pi.on("session_compact", () => {
-    cache.clear();
-    dbg("CLEAR session_compact");
-  });
+  pi.on("session_compact", () => cache.clear());
 }
