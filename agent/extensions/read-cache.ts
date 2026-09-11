@@ -57,7 +57,7 @@ export default function readCache(pi: ExtensionAPI): void {
       // Never cache image results (the model needs the actual image bytes).
       if (event.content.some((c) => c.type === "image")) return;
 
-      const absPath = resolve(input.path, ctx.cwd);
+      const absPath = resolve(ctx.cwd, input.path);
 
       let hash: string;
       try {
@@ -91,7 +91,7 @@ export default function readCache(pi: ExtensionAPI): void {
       !event.isError
     ) {
       const p = (event.input as { path?: string }).path;
-      if (typeof p === "string") invalidatePath(resolve(p, ctx.cwd));
+      if (typeof p === "string") invalidatePath(resolve(ctx.cwd, p));
     }
   });
 
