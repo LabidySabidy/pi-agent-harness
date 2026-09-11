@@ -4,6 +4,7 @@
       "modelOverrides": {
         "deepseek-v4-pro": {
           "thinkingLevelMap": {
+            "off": "none",
             "minimal": "low",
             "low": "low",
             "medium": "medium",
@@ -14,6 +15,7 @@
         },
         "deepseek-flash": {
           "thinkingLevelMap": {
+            "off": "none",
             "minimal": "low",
             "low": "low",
             "medium": "medium",
