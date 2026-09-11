@@ -785,13 +785,14 @@ export default function telemetry(pi: ExtensionAPI) {
       for (const id of agentEndCitations) lessonIds.add(id);
       for (const skill of extractSkills(newText)) skills.add(skill);
 
-      // Only write if turn_end didn't already capture this turn
-      const turnIndex = state.cumulative.turnIndex;
-      if (turnIndex > 0 && cumulativeInput === state.cumulative.inputTokens) {
-        return; // turn_end already handled everything
+      // Only write if turn_end never ran this session. turn_end fires after
+      // every LLM response and already owns the cumulative totals; re-accumulating
+      // all messages here would double-count input/output/cacheRead/cost.
+      if (state.cumulative.turnIndex > 0) {
+        return;
       }
 
-      const newTurn = turnIndex + 1;
+      const newTurn = (state.cumulative.turnIndex ?? 0) + 1;
       const model = models.size > 0 ? [...models].slice(-1)[0] : "unknown";
 
       const record: RunningRecord = {
