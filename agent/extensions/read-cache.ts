@@ -1,23 +1,20 @@
 /**
  * read-cache — stop re-sending file contents already in context.
  *
- * Overrides the built-in `read` tool. Among extensions the first registration
- * of a name wins SILENTLY — if a future extension also registers `read`, this
- * conflict will produce no warning. Keep this in mind before adding tools.
- *
- * The definition is built by spreading createReadToolDefinition(), so the
- * built-in's schema, prompt snippet, guidelines, and renderers are preserved;
- * only `execute` is replaced. The disk read still happens every time (that's
- * how changes are detected); the tokens are what's saved.
+ * Hooks tool_result (the same proven seam bash-quiet uses) rather than
+ * overriding the read tool. When a read result arrives for an unchanged file
+ * that was already returned earlier in this session at the same (path, offset,
+ * limit), its content is replaced with a one-line reference — the model keeps
+ * the earlier bytes in context and the re-read costs almost nothing. The disk
+ * read still happens every time (that's how changes are detected); the tokens
+ * are what's saved.
  *
  * Cache logic: key on (absolute path, offset, limit); content-hash the file.
- * A hit returns a one-line reference instead of the bytes. The cache is cleared
- * on compaction (earlier entries may be summarized away) and invalidated per
- * path on any successful edit/write, so a reference is never stale. Images are
- * never cached — they pass through unchanged.
+ * Cleared on compaction (earlier entries may be summarized away) and invalidated
+ * per path on any successful edit/write, so a reference is never stale. Images
+ * are never cached — they pass through unchanged.
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { createReadToolDefinition } from "@earendil-works/pi-coding-agent";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createHash } from "node:crypto";
@@ -36,8 +33,45 @@ export default function readCache(pi: ExtensionAPI): void {
     }
   };
 
-  // Invalidate on any successful edit/write — content changed on disk.
   pi.on("tool_result", (event, ctx) => {
+    if (event.toolName === "read" && !event.isError) {
+      const input = event.input as {
+        path?: string;
+        offset?: number;
+        limit?: number;
+      };
+      if (typeof input.path !== "string") return;
+
+      // Never cache image results (the model needs the actual image bytes).
+      if (event.content.some((c) => c.type === "image")) return;
+
+      const absPath = resolve(input.path, ctx.cwd);
+
+      let hash: string;
+      try {
+        hash = createHash("sha256").update(readFileSync(absPath)).digest("hex");
+      } catch {
+        return; // can't hash — leave the read untouched
+      }
+
+      const key = `${absPath}::${input.offset ?? 0}::${input.limit ?? ""}`;
+      const cached = cache.get(key);
+      if (cached && cached.hash === hash) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `✓ unchanged · ${absPath} — same content as the earlier read of this file, still in context above. No changes detected.`,
+            },
+          ],
+        };
+      }
+
+      cache.set(key, { hash });
+      return; // first read: keep the original content
+    }
+
+    // Invalidate on any successful edit/write — content changed on disk.
     if (
       (event.toolName === "edit" || event.toolName === "write") &&
       !event.isError
@@ -54,42 +88,4 @@ export default function readCache(pi: ExtensionAPI): void {
   pi.on("session_before_tree", () => cache.clear());
   pi.on("session_before_fork", () => cache.clear());
   pi.on("session_before_switch", () => cache.clear());
-
-  pi.registerTool({
-    ...createReadToolDefinition(process.cwd()), // schema/snippet/guidelines/renderers
-    execute: async (id, params, signal, onUpdate, ctx) => {
-      const absPath = resolve(params.path, ctx.cwd);
-
-      // Always perform the real read (built-in behavior, correct cwd).
-      const base = createReadToolDefinition(ctx.cwd);
-      const result = await base.execute(id, params, signal, onUpdate, ctx);
-
-      // Never cache image results.
-      if (result.content.some((c) => c.type === "image")) return result;
-
-      let hash: string;
-      try {
-        hash = createHash("sha256").update(readFileSync(absPath)).digest("hex");
-      } catch {
-        return result; // can't hash — return the read as-is
-      }
-
-      const key = `${absPath}::${params.offset ?? 0}::${params.limit ?? ""}`;
-      const cached = cache.get(key);
-      if (cached && cached.hash === hash) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `✓ unchanged · ${absPath} — same content as the earlier read of this file, still in context above. No changes detected.`,
-            },
-          ],
-          details: undefined,
-        };
-      }
-
-      cache.set(key, { hash });
-      return result;
-    },
-  });
 }
