@@ -1,0 +1,28 @@
+{
+  "providers": {
+    "deepseek": {
+      "modelOverrides": {
+        "deepseek-v4-pro": {
+          "thinkingLevelMap": {
+            "minimal": "low",
+            "low": "low",
+            "medium": "medium",
+            "high": "high",
+            "xhigh": "high",
+            "max": "high"
+          }
+        },
+        "deepseek-flash": {
+          "thinkingLevelMap": {
+            "minimal": "low",
+            "low": "low",
+            "medium": "medium",
+            "high": "high",
+            "xhigh": "high",
+            "max": "high"
+          }
+        }
+      }
+    }
+  }
+}
