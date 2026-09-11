@@ -1,16 +1,18 @@
 /**
- * bash-quiet — collapse successful verification-command output to one line.
+ * bash-quiet — shrink successful bash output to a summary + temp file.
  *
- * Hooks tool_result and acts only on successful (isError=false) bash results
- * whose command matches a verification pattern (build/test/lint/typecheck).
- * Writes the full output to a temp file owned by this extension and replaces
- * the model-visible content with a one-line summary. Failures pass through
- * untouched — tool_result exposes no exit code, so !isError is the success
- * signal (non-zero exit, timeout and abort all surface as isError=true).
+ * Two tiers:
+ *   1. Verification commands (build/test/lint/typecheck) collapse to a one-line
+ *      "✓ passed" summary — the model only needs the pass/fail bit (2a).
+ *   2. Any other successful output over COLLAPSE_MIN_LINES collapses to a
+ *      head/tail window + temp path — the model keeps context without the full
+ *      dump. Session history has ~922k tokens of this (2b).
  *
- * This is currently the only tool_result handler, so there are no chaining
- * concerns. A throwing handler is logged and skipped by pi, and the file
- * write is wrapped anyway so a failure degrades to the original output.
+ * Failures pass through untouched. tool_result exposes no exit code, so
+ * !isError is the success signal; but the model often appends `; echo "EXIT: $?"`
+ * which makes the shell exit 0 even on failure, so FAILURE_HINTS scans the text.
+ * This handler throws-is-logged-and-skipped by pi, and the file write is wrapped,
+ * so a bug degrades to the original output rather than breaking the session.
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
@@ -18,10 +20,12 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomBytes } from "node:crypto";
 
-// --- Tuning knob: which commands count as "verification" -----------------
+// --- Tuning knobs (edit here) ---------------------------------------------
+
+// Verification commands: collapse to a one-line "✓ passed" (2a).
 // Conservative on purpose: a false positive swallows output the model needs.
 // Patterns anchor at start-of-string or after a shell separator (space ; & |)
-// so "cat gradle-output.txt" does not match. Add/edit regexes here only.
+// so "cat gradle-output.txt" does not match.
 const VERIFY_PATTERNS: RegExp[] = [
   /(^|[\s;&|])(\.\/)?gradlew?(\s|$)/, // ./gradlew build, gradle test
   /(^|[\s;&|])(\.\/)?mvnw?(\s|$)/, // mvn test/package/checkstyle, ./mvnw
@@ -30,6 +34,12 @@ const VERIFY_PATTERNS: RegExp[] = [
   /(^|[\s;&|])(cargo|go|make|ninja)\s+(build|test|lint|check)(\s|$)/,
   /(^|[\s;&|])(pytest|ruff|mypy|flake8|eslint|vitest|jest|checkstyle)(\s|$)/,
 ];
+
+// Any other successful output over this many lines collapses to a head/tail
+// window (2b). Below it, leave output alone — savings aren't worth the risk.
+const COLLAPSE_MIN_LINES = 200;
+const WINDOW_HEAD_LINES = 25;
+const WINDOW_TAIL_LINES = 25;
 
 // Failure signals in output text. If any matches, do NOT collapse — the shell
 // may still have exited 0 (e.g. `cmd; echo "EXIT: $?"` swallows the real exit
@@ -43,39 +53,76 @@ const FAILURE_HINTS: RegExp[] = [
   /\btimed out\b/i,
 ];
 
+function fullOutput(event: {
+  details?: unknown;
+  content?: Array<{ type: string; text?: string }>;
+}): string {
+  const p = (event.details as { fullOutputPath?: string } | undefined)
+    ?.fullOutputPath;
+  if (p && existsSync(p)) return readFileSync(p, "utf8");
+  return (event.content ?? [])
+    .map((c) => (c.type === "text" ? c.text ?? "" : ""))
+    .join("");
+}
+
+function writeTemp(text: string): string {
+  const path = join(
+    tmpdir(),
+    `pi-bash-quiet-${Date.now()}-${randomBytes(4).toString("hex")}.log`,
+  );
+  writeFileSync(path, text);
+  return path;
+}
+
+function countLines(text: string): number {
+  return text ? text.replace(/\n$/, "").split("\n").length : 0;
+}
+
+function headTail(text: string): {
+  head: string;
+  tail: string;
+  omitted: number;
+} {
+  const all = text.split("\n");
+  const head = all.slice(0, WINDOW_HEAD_LINES).join("\n");
+  const tail = all.slice(-WINDOW_TAIL_LINES).join("\n");
+  const omitted = Math.max(
+    0,
+    all.length - WINDOW_HEAD_LINES - WINDOW_TAIL_LINES,
+  );
+  return { head, tail, omitted };
+}
+
 export default function bashQuiet(pi: ExtensionAPI): void {
   pi.on("tool_result", (event, _ctx) => {
     if (event.toolName !== "bash" || event.isError) return;
-
     const raw = (event.input as { command?: unknown }).command;
     const command = typeof raw === "string" ? raw : "";
-    if (!command || !VERIFY_PATTERNS.some((re) => re.test(command))) return;
+    if (!command) return;
 
     try {
-      // Prefer pi's full-output temp file when the result was truncated;
-      // otherwise the content text is the full output.
-      const details = event.details as { fullOutputPath?: string } | undefined;
-      const fullText =
-        details?.fullOutputPath && existsSync(details.fullOutputPath)
-          ? readFileSync(details.fullOutputPath, "utf8")
-          : (event.content ?? [])
-              .map((c) => (c.type === "text" ? c.text : ""))
-              .join("");
+      const full = fullOutput(event);
+      if (FAILURE_HINTS.some((re) => re.test(full))) return; // leave failures untouched
+      const lines = countLines(full);
 
-      if (FAILURE_HINTS.some((re) => re.test(fullText))) return; // leave failures untouched
+      if (VERIFY_PATTERNS.some((re) => re.test(command))) {
+        const path = writeTemp(full);
+        return {
+          content: [
+            { type: "text", text: `✓ passed · ${lines} lines · full: ${path}` },
+          ],
+        };
+      }
 
-      const lines = fullText
-        ? fullText.replace(/\n$/, "").split("\n").length
-        : 0;
-      const path = join(
-        tmpdir(),
-        `pi-bash-quiet-${Date.now()}-${randomBytes(4).toString("hex")}.log`,
-      );
-      writeFileSync(path, fullText);
-
+      if (lines <= COLLAPSE_MIN_LINES) return;
+      const path = writeTemp(full);
+      const { head, tail, omitted } = headTail(full);
       return {
         content: [
-          { type: "text", text: `✓ passed · ${lines} lines · full: ${path}` },
+          {
+            type: "text",
+            text: `✓ ${lines} lines · full: ${path}\n[head]\n${head}\n[${omitted} lines omitted]\n[tail]\n${tail}`,
+          },
         ],
       };
     } catch {
