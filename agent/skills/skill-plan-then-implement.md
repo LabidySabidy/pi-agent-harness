@@ -57,7 +57,7 @@ After you've seen the plan, I check: does this plan hit any of these complexity 
 After grill (if triggered), we return to ask for your approval on the possibly-refined plan.
 
 ### Step 3 — Add tasks to TASKS.md
-**Branch tracking:** If enabled for this project (project AGENTS.md `branch_tracking: true`), invoke `/skill:branch` (Phase A) to create a feature branch before executing any implementation tasks.
+**Branch tracking:** If enabled for this project (project AGENTS.md `branch_tracking: true`), invoke `/skill:branch-hygiene` (Phase A) to create a feature branch before executing any implementation tasks.
 
 Each phase becomes one or more T-NNN tasks. Use monotonically increasing IDs that don't collide with existing tasks. For every task, populate `Done when:` with a testable criterion (a command that passes, an endpoint that returns a specific response, a visible UI state). `Estimate:` is optional — only include it when the effort is genuinely uncertain.
 

@@ -1,9 +1,6 @@
 ---
 name: investigate-bug
 description: Structured 8-step defect investigation — gather, reproduce, root-cause with evidence, TDD fix plan. Use when something is broken, failing, regressed, stopped working, was working before, or has a failing test.
-triggers:
-  - "stopped working"
-  - "was working before"
 ---
 
 # Skill: Investigate Bug

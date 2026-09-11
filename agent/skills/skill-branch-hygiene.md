@@ -1,10 +1,6 @@
 ---
 name: branch-hygiene
 description: Feature-branch start, PR creation, branch cleanup — use when creating a branch, wrapping up, merging, creating a PR, shipping it, cleaning up branches, or closing out.
-triggers:
-  - "finish this branch"
-  - "clean up branches"
-  - "new branch for"
 ---
 
 # Skill: Branch Hygiene
@@ -40,7 +36,7 @@ entirely for that project.
 
 **When:**
 - plan-then-implement step 3 (after PLAN.md approval, before execution)
-- Explicit `/skill:branch` invocation
+- Explicit `/skill:branch-hygiene` invocation
 - AGENTS.md "Branch-before-code" rule triggers (first non-trivial Write/Edit on main)
 
 ### Step A1 — Check working directory
@@ -214,7 +210,7 @@ If `gh` unavailable: print the manual PR URL and body for pasting.
 
 Branch is NOT deleted — stays alive for PR iteration.
 
-**After PR creation:** Archive PLAN.md and TASKS.md when the PR is merged — run `/skill:branch cleanup` which will prompt for archival alongside branch cleanup.
+**After PR creation:** Archive PLAN.md and TASKS.md when the PR is merged — run `/skill:branch-hygiene cleanup` which will prompt for archival alongside branch cleanup.
 
 **Option 2: Merge locally**
 
@@ -265,7 +261,7 @@ git branch -D <branch>
 
 ---
 
-## Cleanup Mode (`/skill:branch cleanup`)
+## Cleanup Mode (`/skill:branch-hygiene cleanup`)
 
 List local branches whose tips are reachable from base (already merged):
 

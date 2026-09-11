@@ -1,8 +1,6 @@
 ---
 name: gardening
 description: Tend the agent's memory files — intake pending lessons, merge duplicates, demote stale lessons, compress (observe-only), archive old progress, and sweep stale artifacts. Use when it's time to garden, review memory, clean up lessons, prune stale content, promote lessons, or when memory is over budget. Replaces promote-lessons.
-triggers:
-  - "consolidate progress"
 ---
 
 # Skill: Gardening
@@ -231,12 +229,6 @@ Reports are durable (exempt from sweep passes) and live under `.agent/reports/`.
 |----------|----------|
 | `auto` | Execute without confirmation |
 | `gated` | Present changes, ask per-pass y/n. Never batch. |
-
-## Deprecation notice
-
-This skill replaces `promote-lessons`. If you arrived here via `/skill:promote-lessons`:
-that skill is now a pointer to gardening. Use `--pass intake` to review pending lessons,
-or run the full gardening session for a complete memory review.
 
 ## Anti-patterns
 

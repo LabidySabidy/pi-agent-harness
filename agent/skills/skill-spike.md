@@ -1,32 +1,6 @@
 ---
 name: spike
 description: Throwaway prototype to validate the riskiest technical assumption before committing to a full plan. Use for a spike, prototype, proof of concept, feasibility check, throwaway script, or can-this-even-work question.
-triggers:
-  - "does this even work"
-  - "can we even"
-  - "is it possible to"
-  - "not sure if"
-  - "wonder if this"
-  - "before we commit"
-  - "before I invest"
-  - "before building"
-  - "before we build"
-  - "quick test"
-  - "quick script"
-  - "quick and dirty"
-  - "scratch script"
-  - "rough test"
-  - "sanity check"
-  - "test the waters"
-  - "see if this works"
-  - "check if this is possible"
-  - "does the API"
-  - "will this library"
-  - "validate this"
-  - "validate the approach"
-  - "experiment"
-  - "try this out"
-  - "try before"
 ---
 
 # Skill: Spike (Technical Feasibility Validation)
