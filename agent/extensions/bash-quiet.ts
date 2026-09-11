@@ -10,8 +10,11 @@
  *
  * Failures pass through untouched. tool_result exposes no exit code, so
  * !isError is the success signal; but the model often appends `; echo "EXIT: $?"`
- * which makes the shell exit 0 even on failure, so FAILURE_HINTS scans the text.
- * This handler throws-is-logged-and-skipped by pi, and the file write is wrapped,
+ * which makes the shell exit 0 even on failure, so the output text is scanned
+ * for failure signals. That scan is tiered: verification commands trust
+ * "error"/"failed" text (2a), general output only trusts EXIT:N>0 / aborted /
+ * timeout (2b) — there, "error" is usually just data (e.g. package names).
+ * A throwing handler is logged and skipped by pi, and the file write is wrapped,
  * so a bug degrades to the original output rather than breaking the session.
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -45,10 +48,19 @@ const WINDOW_TAIL_LINES = 25;
 // may still have exited 0 (e.g. `cmd; echo "EXIT: $?"` swallows the real exit
 // code). Erring toward not-collapsing is safe: worst case we lose the collapse,
 // never report a real failure as passed.
-const FAILURE_HINTS: RegExp[] = [
+//
+// Two tiers: verification output treats "error"/"failed" as genuine failure;
+// general output does not, because those words are often just data (package
+// names like es-errors, log lines). General only trusts unambiguous signals.
+const VERIFY_FAILURE_HINTS: RegExp[] = [
   /\bEXIT:\s*[1-9]\d*\b/, // the model's own exit-code echo idiom
   /\berrors?\b/i, // "error TS2365", "Error:", "errors"
   /\bfail(?:ed|ure)?\b/i, // "failed", "failure", "FAILED"
+  /\baborted\b/i,
+  /\btimed out\b/i,
+];
+const GENERAL_FAILURE_HINTS: RegExp[] = [
+  /\bEXIT:\s*[1-9]\d*\b/, // the model's own exit-code echo idiom
   /\baborted\b/i,
   /\btimed out\b/i,
 ];
@@ -102,10 +114,12 @@ export default function bashQuiet(pi: ExtensionAPI): void {
 
     try {
       const full = fullOutput(event);
-      if (FAILURE_HINTS.some((re) => re.test(full))) return; // leave failures untouched
+      const isVerify = VERIFY_PATTERNS.some((re) => re.test(command));
+      const hints = isVerify ? VERIFY_FAILURE_HINTS : GENERAL_FAILURE_HINTS;
+      if (hints.some((re) => re.test(full))) return; // leave failures untouched
       const lines = countLines(full);
 
-      if (VERIFY_PATTERNS.some((re) => re.test(command))) {
+      if (isVerify) {
         const path = writeTemp(full);
         return {
           content: [
