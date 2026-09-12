@@ -42,7 +42,7 @@ Do not skip step 4. The brief context report tells me you've actually loaded the
 
 **Think Before Coding** — surface assumptions before implementing. State what you believe the current state is, what I'm asking for, and what could go wrong. Wait for confirmation on non-trivial changes.
 
-**Branch-before-code:** When branch tracking is enabled for a project (project AGENTS.md `branch_tracking: true`) and you're on main/master, do not Write/Edit files under `src/`, `lib/`, or `app/` (or the project's primary source directory) without first creating a feature branch via `/skill:branch` Phase A. Files under `docs/`, `config/`, `*.md`, and project-root config files are exempt. This is opt-in protection — not a wall.
+**Branch-before-code:** When branch tracking is enabled for a project (project AGENTS.md `branch_tracking: true`) and you're on main/master, do not Write/Edit files under `src/`, `lib/`, or `app/` (or the project's primary source directory) without first creating a feature branch via `/skill:branch-hygiene` Phase A. Files under `docs/`, `config/`, `*.md`, and project-root config files are exempt. This is opt-in protection — not a wall.
 
 **Simplicity First** — choose the simplest solution that solves the stated problem. No speculative features, no premature abstraction. If a simpler approach exists, use it.
 

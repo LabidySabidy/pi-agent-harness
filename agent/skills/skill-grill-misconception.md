@@ -1,6 +1,6 @@
 ---
 name: grill-misconception
-description: Socratic concept diagnostic that dismantles the illusion of understanding via misconception-first probing and Feynman-gated recall. Use when the user says "grill me", "test me", "diagnostic", "Socratic", or "verify mastery", or wants to test their understanding of a concept before moving on.
+description: Socratic cross-examination of the user's grasp of a concept — the model probes for misconceptions while the user answers from memory. Load when asked to be tested or diagnosed on a concept ("grill me on X", "verify mastery"). Not for interrogating a design or plan (grill).
 ---
 
 # Skill: Grill Misconception (Socratic Interrogator)

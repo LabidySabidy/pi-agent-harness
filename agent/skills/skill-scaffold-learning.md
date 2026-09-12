@@ -1,7 +1,7 @@
 ---
 disable-model-invocation: true
 name: scaffold-learning
-description: Onboarding advisor that interviews the user, deconstructs a topic into a 20-hour sequenced curriculum, and instantiates the local .agent/learning/ files. Use when the user says "start learning", "onboard topic", "scaffold syllabus", "deconstruct skill", or wants to set up a new learning project.
+description: Onboarding advisor for a learning project — interview the user, deconstruct a topic into a 20-hour curriculum, set up .agent/learning/ files. Explicit invocation only (hidden from the model). Not for bootstrapping a code project (scaffold).
 ---
 
 # Skill: Scaffold Learning (Advisor)

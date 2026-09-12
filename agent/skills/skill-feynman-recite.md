@@ -1,6 +1,6 @@
 ---
 name: feynman-recite
-description: Active-recall validator that forces the user to explain a concept in their own words to prove recollection and earn a higher proficiency badge. Use when the user says "recite", "explain concept", "feynman teach", "check understanding", or wants to test storage strength on a concept.
+description: Active-recall check: the user explains one concept from memory in plain English to earn a proficiency badge. Load when asked to recite, explain a concept, or check understanding. Not for the model cross-examining for misconceptions (grill-misconception).
 ---
 
 # Skill: Feynman Recite (Recitation Validator)

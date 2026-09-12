@@ -28,6 +28,7 @@ import type { ExtensionAPI, AgentEndEvent, TurnEndEvent } from "@earendil-works/
 import { promises as fs } from "node:fs";
 import { join, resolve } from "node:path";
 import * as os from "node:os";
+import { bucketMessages, charsToTokens, BUCKET_KEYS, type TokenBuckets } from "./buckets.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -161,6 +162,27 @@ let projectDir: string | null = null;
 let deviceName: string | null = null;
 let harnessGitSha: string | null = null;
 let state: TelemetryState | null = null;
+
+// ── Token accounting (Pass 5) ──────────────────────────────────────────
+let lastBuckets: TokenBuckets | null = null;
+let systemPromptTokens = 0;
+let contextFilesTokens = 0;
+let skillsTokens = 0;
+let lastProviderUsage: { input: number; output: number; cacheRead: number; cacheWrite: number; totalTokens: number } | null = null;
+
+/** Extract LLM-facing messages from the current session branch (for /tokens). */
+function sessionMessages(ctx: any): unknown[] {
+  try {
+    const entries = ctx?.sessionManager?.buildContextEntries?.() ?? [];
+    const msgs: unknown[] = [];
+    for (const e of entries as Array<{ type?: string; message?: unknown }>) {
+      if (e?.type === "message" && e?.message) msgs.push(e.message);
+    }
+    return msgs;
+  } catch {
+    return [];
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -588,6 +610,13 @@ export default function telemetry(pi: ExtensionAPI) {
       };
       await writeState(statePath, state);
 
+      // Reset token accounting for the new session.
+      lastBuckets = null;
+      systemPromptTokens = 0;
+      contextFilesTokens = 0;
+      skillsTokens = 0;
+      lastProviderUsage = null;
+
       if (!shouldWrite) return; // Don't scaffold into bare projects
 
       // Measure boot payload
@@ -785,13 +814,14 @@ export default function telemetry(pi: ExtensionAPI) {
       for (const id of agentEndCitations) lessonIds.add(id);
       for (const skill of extractSkills(newText)) skills.add(skill);
 
-      // Only write if turn_end didn't already capture this turn
-      const turnIndex = state.cumulative.turnIndex;
-      if (turnIndex > 0 && cumulativeInput === state.cumulative.inputTokens) {
-        return; // turn_end already handled everything
+      // Only write if turn_end never ran this session. turn_end fires after
+      // every LLM response and already owns the cumulative totals; re-accumulating
+      // all messages here would double-count input/output/cacheRead/cost.
+      if (state.cumulative.turnIndex > 0) {
+        return;
       }
 
-      const newTurn = turnIndex + 1;
+      const newTurn = (state.cumulative.turnIndex ?? 0) + 1;
       const model = models.size > 0 ? [...models].slice(-1)[0] : "unknown";
 
       const record: RunningRecord = {
@@ -871,5 +901,127 @@ export default function telemetry(pi: ExtensionAPI) {
         ).catch(() => {});
       }
     }
+  });
+
+  // ── context ────────────────────────────────────────────────────────
+  // Read-only: bucket the request's messages by layer. Never returns modified
+  // messages — returning them would break provider prompt caching.
+  pi.on("context", (event: any) => {
+    try {
+      lastBuckets = bucketMessages(event?.messages ?? []);
+    } catch {
+      // fail-open
+    }
+  });
+
+  // ── before_agent_start ─────────────────────────────────────────────
+  // Size the system prompt and its context files / skills (per prompt).
+  pi.on("before_agent_start", (event: any) => {
+    try {
+      systemPromptTokens = charsToTokens(event?.systemPrompt?.length ?? 0);
+      const opts = event?.systemPromptOptions ?? {};
+      let cf = 0;
+      for (const f of opts.contextFiles ?? []) {
+        cf += (f?.path?.length ?? 0) + (f?.content?.length ?? 0);
+      }
+      let sk = 0;
+      for (const s of opts.skills ?? []) {
+        sk += (s?.name?.length ?? 0) + (s?.description?.length ?? 0);
+      }
+      contextFilesTokens = charsToTokens(cf);
+      skillsTokens = charsToTokens(sk);
+    } catch {
+      // fail-open
+    }
+  });
+
+  // ── message_end ────────────────────────────────────────────────────
+  // Record the provider's reported usage for calibration, and persist a
+  // snapshot as a custom entry (excluded from the LLM context).
+  pi.on("message_end", (event: any) => {
+    try {
+      const usage = event?.message?.usage;
+      if (usage) {
+        lastProviderUsage = {
+          input: usage.input ?? 0,
+          output: usage.output ?? 0,
+          cacheRead: usage.cacheRead ?? 0,
+          cacheWrite: usage.cacheWrite ?? 0,
+          totalTokens: usage.totalTokens ?? 0,
+        };
+      }
+      if (lastBuckets) {
+        pi.appendEntry("tokens", {
+          ts: isoNow(),
+          systemPromptTokens,
+          contextFilesTokens,
+          skillsTokens,
+          buckets: lastBuckets,
+          providerUsage: lastProviderUsage,
+        });
+      }
+    } catch {
+      // fail-open
+    }
+  });
+
+  // ── /tokens command ────────────────────────────────────────────────
+  pi.registerCommand("tokens", {
+    description:
+      "Token accounting for the current session — per-layer estimates + calibration delta.",
+    handler: async (_args: string, ctx: any) => {
+      try {
+        const usage = ctx.getContextUsage?.();
+        const total = usage?.tokens ?? null;
+        const win = usage?.contextWindow ?? 0;
+        const pct = usage?.percent ?? null;
+
+        // Bucket the CURRENT session context directly — self-contained, so
+        // /tokens works even before the first LLM call of this session.
+        const b = bucketMessages(sessionMessages(ctx));
+        const sysTokens = charsToTokens(ctx.getSystemPrompt?.()?.length ?? 0);
+
+        const sum = BUCKET_KEYS.reduce((s, k) => s + b[k], 0) + sysTokens;
+
+        const lines: string[] = [];
+        lines.push(
+          `Context: ${total != null ? total.toLocaleString() : "n/a"} / ${win.toLocaleString()}` +
+            (pct != null ? ` (${pct.toFixed(1)}%)` : ""),
+        );
+        lines.push("");
+        lines.push(`System prompt: ${sysTokens.toLocaleString()}`);
+        lines.push(`  contextFiles: ${contextFilesTokens.toLocaleString()}`);
+        lines.push(`  skills: ${skillsTokens.toLocaleString()}`);
+        lines.push("");
+        lines.push("Layers (estimated, chars/4):");
+        lines.push(`  user text: ${b.userText.toLocaleString()}`);
+        lines.push(`  skill blocks: ${b.skillBlocks.toLocaleString()}`);
+        lines.push(`  read results: ${b.readResults.toLocaleString()}`);
+        lines.push(`  bash results: ${b.bashResults.toLocaleString()}`);
+        lines.push(`  other tool results: ${b.otherToolResults.toLocaleString()}`);
+        lines.push(`  thinking: ${b.thinking.toLocaleString()}`);
+        lines.push(`  tool-call args: ${b.toolCallArgs.toLocaleString()}`);
+        lines.push(`  assistant text: ${b.assistantText.toLocaleString()}`);
+        lines.push("");
+        lines.push(`Sum of layers: ${sum.toLocaleString()}`);
+        if (total != null && total > 0) {
+          const deltaPct = Math.round(((sum - total) / total) * 100);
+          lines.push(`Delta vs context total: ${deltaPct}% (estimates are chars/4)`);
+        }
+        if (lastProviderUsage?.totalTokens) {
+          const u = lastProviderUsage;
+          lines.push(
+            `Last provider usage: ${u.totalTokens.toLocaleString()} total (in ${u.input.toLocaleString()}, out ${u.output.toLocaleString()}, cacheRead ${u.cacheRead.toLocaleString()})`,
+          );
+        }
+
+        ctx.ui.notify(lines.join("\n"), "info");
+      } catch (err) {
+        ctx.ui.notify(
+          `/tokens failed: ${err instanceof Error ? err.message : String(err)}`,
+          "error",
+        );
+      }
+    },
   });
 }

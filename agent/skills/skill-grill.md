@@ -1,6 +1,6 @@
 ---
 name: grill
-description: Adversarial design interrogation — walk the design tree before non-trivial implementation. Use when asked to grill me, poke holes, red team, stress test, challenge a design, or find flaws.
+description: Adversarial design interrogation — walk the design tree before non-trivial implementation. Use when asked to grill me about a design or plan, poke holes, red team, stress test, challenge a design, or find flaws.
 ---
 
 # Skill: Grill (Adversarial Design Interrogation)
