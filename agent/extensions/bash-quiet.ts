@@ -36,6 +36,7 @@ const VERIFY_PATTERNS: RegExp[] = [
   /(^|[\s;&|])(npm|pnpm|yarn|bun)(\s+run)?\s+(build|test|lint|typecheck|tsc|check)(\s|$)/,
   /(^|[\s;&|])(cargo|go|make|ninja)\s+(build|test|lint|check)(\s|$)/,
   /(^|[\s;&|])(pytest|ruff|mypy|flake8|eslint|vitest|jest|checkstyle)(\s|$)/,
+  /(^|[\s;&|])node\s+(?:--[\w-]+\s+)*--test(?:\s|$)/, // node --test, node --flag --test
 ];
 
 // Any other successful output over this many lines collapses to a head/tail
@@ -54,8 +55,10 @@ const WINDOW_TAIL_LINES = 25;
 // names like es-errors, log lines). General only trusts unambiguous signals.
 const VERIFY_FAILURE_HINTS: RegExp[] = [
   /\bEXIT:\s*[1-9]\d*\b/, // the model's own exit-code echo idiom
-  /\berrors?\b/i, // "error TS2365", "Error:", "errors"
-  /\bfail(?:ed|ure)?\b/i, // "failed", "failure", "FAILED"
+  // "error"/"fail" families, but NOT zero counts — passing test summaries print
+  // "fail 0" / "0 errors", and matching those blocked the collapse.
+  /(?<!\b0\s)\berrors?\b(?!\s*[:=]?\s*0\b)/i, // "error TS2365", "3 errors"
+  /(?<!\b0\s)\bfail(?:ed|ure|ing)?s?\b(?!\s*[:=]?\s*0\b)/i, // "failed", "2 failures"
   /\baborted\b/i,
   /\btimed out\b/i,
 ];

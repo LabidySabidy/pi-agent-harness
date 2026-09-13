@@ -940,7 +940,8 @@ export default function telemetry(pi: ExtensionAPI) {
   // snapshot as a custom entry (excluded from the LLM context).
   pi.on("message_end", (event: any) => {
     try {
-      const usage = event?.message?.usage;
+      const msg = event?.message;
+      const usage = msg?.usage;
       if (usage) {
         lastProviderUsage = {
           input: usage.input ?? 0,
@@ -950,7 +951,9 @@ export default function telemetry(pi: ExtensionAPI) {
           totalTokens: usage.totalTokens ?? 0,
         };
       }
-      if (lastBuckets) {
+      // Snapshot once per assistant response (≈ once per turn), not for every
+      // message — a long session otherwise appends thousands of custom entries.
+      if (msg?.role === "assistant" && lastBuckets) {
         pi.appendEntry("tokens", {
           ts: isoNow(),
           systemPromptTokens,

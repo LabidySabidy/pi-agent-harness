@@ -1,58 +1,46 @@
-# PLAN — Pass 5: Token accounting by layer
+# PLAN — Harness fixes from the socrates-web audit
 
 ## Goal
 
-Add per-layer token attribution (system prompt, user text, skill blocks, read results, bash results, thinking, tool-call args) to the existing `telemetry` extension, exposed via a `/tokens` command.
+Fix three defects the socrates-web session audit exposed: bash-quiet under-collapsing, and telemetry's per-message snapshot bloat.
 
 ## Approach
 
-Extend `agent/extensions/telemetry/index.ts` — do **not** create a parallel extension. It already hooks `session_start` / `turn_end` / `agent_end` / `session_shutdown`, so the new handlers live alongside them and share its state/helpers.
+Surgical edits to two existing extensions. No new files in the shipped harness, no new dependencies.
 
-Three new read-only hooks + a command:
-
-1. **`context` handler** — buckets the exact request's messages by layer (char/4 estimates), stores the result in memory, returns nothing (does not modify messages → preserves provider prompt caching).
-2. **`before_agent_start` handler** — sizes the system prompt + its `contextFiles` + `skills`, stores in memory.
-3. **`message_end` handler** — records the provider's reported `usage` (`input`/`output`/`cacheRead`/`cacheWrite`/`totalTokens`) for calibration.
-4. **`pi.appendEntry("tokens", …)`** — persists the latest snapshot as a `custom` entry (excluded from LLM context).
-5. **`/tokens` command** — reports the breakdown: `getContextUsage()` total, system-prompt size, per-layer buckets, and the **calibration delta** (sum-of-estimates vs context total).
-
-**Key design decisions:**
-- **No runtime imports from the package.** `parseSkillBlock` is re-implemented as a local regex (a global `<skill …>…</skill>` matcher, more robust than the single-block export) and the existing local `estimateTokens` (chars/4) is reused. Rationale: the telemetry extension is critical infrastructure, and the runtime-import path (`@earendil-works/pi-coding-agent`) was never conclusively proven in pi-web RPC during Pass 3 — a load error here would kill *all* telemetry.
-- **Read-only `context` handler.** It must never return modified messages (would break prompt caching).
-- **Honest precision.** Layer counts are chars/4 estimates; the `/tokens` output labels them "estimated" and shows the delta vs `getContextUsage()`.
+1. **`bash-quiet.ts` — add `node --test` to `VERIFY_PATTERNS`.** The socrates-web project (and the harness's own `buckets.test.ts`) use Node's built-in test runner; 120 test invocations matched no pattern and never collapsed.
+2. **`bash-quiet.ts` — make the `error`/`fail` failure hints zero-count aware.** Passing test summaries end with `fail 0` / `0 errors`, which trip `\bfail`/`\berror` and block the collapse; 62 otherwise-passing verification outputs were not collapsed because of this. Fix: exclude the word when adjacent to a zero count (lookarounds), while still matching real `2 failed` / `error TS2365` / `Build failed`.
+3. **`telemetry/index.ts` — throttle the `/tokens` snapshot.** `message_end` fires for every message (user/assistant/tool), so the handler appended 1,819 `tokens` entries in one session. Change to append only on **assistant** messages (≈ once per turn).
 
 ## Phases
 
-- **P1 — Bucketing (pure function, testable):** extract `bucketMessages(messages)` → `{ userText, skillBlocks, readResults, bashResults, otherToolResults, thinking, toolCallArgs, assistantText }` (token estimates). Unit-test it.
-- **P2 — `context` handler:** call `bucketMessages`, store `lastBuckets`, return nothing.
-- **P3 — `before_agent_start` + `message_end` handlers:** size system prompt; capture provider usage.
-- **P4 — persistence + command:** `appendEntry` snapshot on `message_end`; `/tokens` command renders the breakdown + delta.
-- **P5 — verify:** restart pi, run a real session, compare `/tokens` total vs `getContextUsage()` and vs a manual JSONL parse.
+- **P1 — bash-quiet patterns + hints (TDD):** write a regex test (RED), then edit the two constant lists (GREEN).
+- **P2 — telemetry throttle:** gate the `appendEntry` on `message.role === "assistant"`.
+- **P3 — verify:** syntax-check both, re-run the P1 test, confirm no regression to the existing failure behavior.
 
 ## Files that will change
 
 | File | Change | Phase |
 |---|---|---|
-| `agent/extensions/telemetry/index.ts` | add `bucketMessages`, 3 handlers, `appendEntry`, `/tokens` command | P1–P4 |
-| `agent/extensions/telemetry/buckets.ts` | new pure module for `bucketMessages` + its types (kept testable without pi) | P1 |
-| `.agent/scratch/buckets.test.mjs` | unit test for `bucketMessages` | P1 |
+| `agent/extensions/bash-quiet.ts` | add `node --test` pattern; zero-count-aware `error`/`fail` hints | P1 |
+| `agent/extensions/telemetry/index.ts` | gate `appendEntry("tokens", …)` on assistant messages | P2 |
+| `.agent/scratch/bash-quiet-hints.test.mjs` | regex test (throwaway, scratch) | P1 |
 
 ## Acceptance criteria
 
-- [ ] `bucketMessages` unit test passes (user/skill/read/bash/thinking/toolCall bucketing).
-- [ ] Extension loads with no errors after restart.
-- [ ] `/tokens` prints a breakdown with: context total, system-prompt size, per-layer estimates, and a calibration delta.
-- [ ] The `/tokens` total is within ~20% of `getContextUsage()`.
-- [ ] `appendEntry` data does **not** appear in the LLM context (verify via a fresh session JSONL — `type:"custom"` entries are not sent).
-- [ ] A manual JSONL parse of the same session matches the `/tokens` layer split within a stated margin.
+- [ ] `node --test …` and `node <flag> --test …` match `VERIFY_PATTERNS`.
+- [ ] `fail 0`, `0 errors`, `0 failures` do **not** match the verification failure hints.
+- [ ] `2 failed`, `error TS2365`, `Build failed`, `EXIT: 2`, `aborted`, `timed out` still match.
+- [ ] `EXIT: 0` still does not match.
+- [ ] telemetry appends `tokens` only on assistant `message_end`.
+- [ ] both extensions syntax-check clean.
 
 ## Not in scope
 
-- Exact per-layer counts (impossible — providers report totals only; this is calibrated estimates).
-- Pass 4 (outline tool).
-- Any change to `pi-agent-core`/`pi-ai` or the provider.
-- Fixing the (already-known) cache-read double-count — that was fixed separately in `450dfc1`.
+- read-cache (no change — its idleness is a model `bash cat` habit, not a defect).
+- Any change to the general-tier failure hints (`GENERAL_FAILURE_HINTS` stay as-is).
+- New verification tooling beyond what the audit showed (only `node --test` is added).
 
 ## Open questions
 
-- None blocking. The only assumption is the `context` event message shape (`role` + `content` blocks, `toolResult` carrying `toolName`), which the re-audit already documented.
+- None blocking. The zero-count lookaround is the only judgment call; it is unit-tested.
