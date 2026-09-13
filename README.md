@@ -85,15 +85,15 @@ Descriptions are the routing signal: each states what the skill is for **and** w
 
 ## Token-cost control
 
-Three pieces keep the context small and the spend visible — the harness's answer to "why is my context so big?"
+The harness's answer to "why is my context so big?" is measurement, not suppression.
 
 | Piece | What it does |
 |---|---|
-| **bash-quiet** | Collapses successful bash output. Verification commands (`build`/`test`/`lint`/`tsc`/`gradle`/`mvn`…) → a one-line `✓ passed · N lines · full: <path>`; any other successful output over 200 lines → a head/tail window. Failures always pass through untouched. |
-| **read-cache** | Returns a one-line reference when the model re-reads an unchanged file at the same `(path, offset, limit)`. Cleared on compaction, invalidated on edit/write. |
 | **`/tokens`** | On-demand breakdown of the current session: system prompt, then per-layer estimates (user text, skill blocks, read results, bash results, thinking, tool-call args, assistant text) plus the calibration delta vs the provider's real total. Labeled as estimates — providers only report totals. |
 
 Run `/tokens` any time to see which layer is eating your context window.
+
+Two output-suppression extensions — `bash-quiet` and `read-cache` — were **removed** after replaying recorded sessions through their own logic showed they cost more than they saved: bash-quiet's hidden output was refetched **109%** of the time (net −2,271 tokens), and its >200-line path never fired across 38.8 hours. Recorded as GL-028 in `agent/LESSONS.md`.
 
 ---
 
@@ -135,16 +135,15 @@ Safety is **git**, not a hand-rolled guard:
 
 ## Extensions
 
-Seven modules in `~/.pi/agent/extensions/` hook Pi's event system:
+Six modules in `~/.pi/agent/extensions/` hook Pi's event system:
 
 | Extension | Hooks | What it does |
 |---|---|---|
 | **telemetry** | `session_start`, `turn_end`, `agent_end`, `session_shutdown` | Append-only JSONL of token usage, cost, skill invocations, and lesson citations; also registers `/tokens` |
-| **bash-quiet** | `tool_result` | Collapses successful bash output to a summary + temp-file path |
-| **read-cache** | `tool_result`, `session_compact` | Returns a reference for unchanged, already-in-context re-reads |
 | **session-summary** | `session_start`, `turn_end`, `session_shutdown` | Maintains a rolling `PROGRESS.md` entry; finalizes stale entries on next start |
 | **extract-patterns** | `agent_end`, `session_shutdown` | Scans assistant messages for lesson candidates → `.agent/lessons-pending.md`; incremental and deduped |
-| **learning-state-manager** | `message_end` | Strips telemetry JSON from assistant messages |
+| **learning** | `session_start`, `message_end`, `agent_end`, `session_shutdown` | Strips telemetry JSON from assistant messages |
+| **passivity** | `agent_end` | Emits a `PASSIVITY` notification when the last prompt was a bare nod (`ok`, `continue`), so the client can ask for a real question |
 | **telepi-handoff** | command | Registers `/handoff` (packaged, not authored here) |
 
 ---
@@ -189,8 +188,8 @@ Everything is optional — the harness works on defaults.
 ├── settings.json               # Provider/model/thinking defaults
 ├── lesson-stats.json           # Citation stats (telemetry-maintained, personal)
 ├── skills/                     # Composable skills (one workflow per file)
-├── extensions/                 # telemetry, bash-quiet, read-cache, session-summary,
-│                               #   extract-patterns, learning-state-manager, telepi-handoff
+├── extensions/                 # telemetry, session-summary, extract-patterns,
+│                               #   learning, passivity, telepi-handoff
 ├── references/                 # Lazy-loaded reference docs
 └── templates/                  # Scaffold templates
 
