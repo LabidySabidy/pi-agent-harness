@@ -8,7 +8,7 @@
  * The reducer is pure and order-tolerant within a single writer: file order is
  * chronological, and replaying the whole log must always yield the same state.
  */
-import type { Badge, Sm2, Telemetry } from "./telemetry.ts";
+import type { Badge, Severity, Sm2, Telemetry } from "./telemetry.ts";
 
 export type EventKind =
   | "session_start"
@@ -38,6 +38,8 @@ export interface LearningEvent {
   id?: string;
   description?: string;
   corrected?: string;
+  /** Tutor-emitted severity. Absent means unrated. */
+  severity?: Severity;
   reason?: string;
   evidence?: string;
   text?: string;
@@ -55,6 +57,8 @@ export interface MisconceptionRow {
   corrected: string;
   status: "open" | "resolved";
   date: string;
+  /** `""` means unrated and is the backward-compatible default. */
+  severity: Severity | "";
 }
 
 export interface ConceptState {
@@ -190,6 +194,7 @@ export function reduceEvents(events: LearningEvent[]): ReducedState {
           corrected: "",
           status: "open",
           date: e.ts.slice(0, 10),
+          severity: "",
         };
         if (e.kind === "misconception_open") {
           if (e.description) row.description = e.description;
@@ -197,6 +202,9 @@ export function reduceEvents(events: LearningEvent[]): ReducedState {
           row.status = "resolved";
           if (e.corrected) row.corrected = e.corrected;
         }
+        // Severity is updatable on re-assessment, exactly like the corrected cell.
+        // Only an explicit rating overwrites; an omitted field leaves the prior value.
+        if (e.severity) row.severity = e.severity;
         state.misconceptions.set(e.id, row);
 
         const c = ensureConcept(state, row.concept);
@@ -271,6 +279,7 @@ export function telemetryToEvents(
             concept: t.concept,
             id: t.misconception.id,
             corrected: t.misconception.corrected ?? "",
+            severity: t.misconception.severity,
           }
         : {
             ...base,
@@ -278,6 +287,7 @@ export function telemetryToEvents(
             concept: t.concept,
             id: t.misconception.id,
             description: t.misconception.description,
+            severity: t.misconception.severity,
           },
     );
   }

@@ -41,10 +41,15 @@
 
 > Log of uncorrected assumptions surfaced during Socratic grilling. Append rows, never delete.
 > A misconception is "resolved" only when I explain the correct model in my own words.
+>
+> **Severity** is rated by the tutor, never inferred from the prose: `root` (core mental model is
+> wrong) · `partial` (right idea, applied wrongly) · `edge` (isolated slip, not a model flaw).
+> Leave it blank when unrated — blank means unrated, and that must stay honest. A resolved row
+> displays as `resolved` regardless of its stored rating. Nothing here is a mastery value.
 
-| ID | Concept | Misconception (what I believed) | Corrected model (my own words) | Status | Date |
-|----|---------|---------------------------------|-------------------------------|--------|------|
-| MIS-001 | <concept> | <what I got wrong> | <blank until resolved> | open | <YYYY-MM-DD> |
+| ID | Concept | Misconception (what I believed) | Corrected model (my own words) | Status | Date | Severity |
+|----|---------|---------------------------------|-------------------------------|--------|------|----------|
+| MIS-001 | <concept> | <what I got wrong> | <blank until resolved> | open | <YYYY-MM-DD> | <root\|partial\|edge, or blank> |
 
 ## 4. SM-2 Spaced Telemetry
 
