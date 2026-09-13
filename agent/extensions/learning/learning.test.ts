@@ -268,3 +268,23 @@ test("projectSchema warns instead of guessing: unknown concept, duplicate headin
   assert.ok(warnings.includes("duplicate-concept:react-state"));
   assert.ok(warnings.some((w) => w.startsWith("badge_drift:react-state:⬜->🟦")));
 });
+
+test("projectSchema flags pre-existing duplicate ids without repairing them", () => {
+  // A duplicate id is indistinguishable from an authored row by id alone, so the
+  // projection reports it and leaves both rows standing. Manual dedupe only.
+  const dupRow = "| MIS-002 | component-lifecycle | believed effects run before render | effects run after commit | open | 2026-08-15 |";
+  const dup = SCHEMA.replace(
+    dupRow,
+    "| MIS-001 | component-lifecycle | a second row reusing an id |  | open | 2026-08-15 |",
+  );
+  const state = reduceEvents([
+    ev({ kind: "misconception_open", id: "MIS-009", concept: "react-state", description: "brand new" }),
+  ]);
+  const { text, warnings } = projectSchema(dup, state, { today: "2026-09-13" });
+
+  assert.ok(warnings.includes("duplicate-registry-row:MIS-001"));
+  const mis001 = text.split("\n").filter((l) => l.startsWith("| MIS-001 "));
+  assert.equal(mis001.length, 2, "both duplicate rows preserved — nothing deleted");
+  assert.equal(text.split("\n").filter((l) => l.startsWith("| MIS-009 ")).length, 1);
+  assert.ok(!warnings.some((w) => w.includes("MIS-009")), "a clean new id raises no duplicate warning");
+});

@@ -34,6 +34,22 @@ export function lastUserMessageText(entries: unknown[]): string | null {
 }
 
 /**
+ * Count USER PROMPTS (exchanges), not agent turns.
+ *
+ * One prompt can span several agent turns — every tool-call round is its own turn —
+ * so counting `turn_end` reported 4 for a single exchange. Nothing consumes the
+ * agent-turn count, so it is not kept at all.
+ */
+export function countUserPrompts(entries: unknown[]): number {
+  let n = 0;
+  for (const raw of entries) {
+    const e = raw as MaybeEntry | null;
+    if (e?.message?.role === "user") n++;
+  }
+  return n;
+}
+
+/**
  * True when the latest user message was a skill expansion for a grill skill —
  * i.e. the turn just answered was supposed to produce learning telemetry.
  */

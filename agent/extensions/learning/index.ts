@@ -25,7 +25,7 @@ import {
   type LearningEvent,
 } from "./events.ts";
 import { projectSchema } from "./schema.ts";
-import { detectGrillTurn } from "./signal.ts";
+import { detectGrillTurn, countUserPrompts } from "./signal.ts";
 import { renderSessionMarkdown, sessionFileName, staleSessions } from "./sessions.ts";
 import {
   appendEvent,
@@ -43,7 +43,6 @@ interface SessionState {
   file: string | null;
   startedAt: string;
   fileName: string;
-  turns: number;
 }
 
 interface Ctx {
@@ -172,7 +171,6 @@ export default function learning(pi: ExtensionAPI) {
       file: ctx.sessionManager.getSessionFile() ?? null,
       startedAt: now,
       fileName: sessionFileName(now, id),
-      turns: 0,
     };
     if (!isCourseDir(ctx.cwd)) return;
 
@@ -232,11 +230,6 @@ export default function learning(pi: ExtensionAPI) {
     return { message: { ...message, content: cleanedContent } };
   });
 
-  // --- turn bookkeeping ------------------------------------------------------ 
-  pi.on("turn_end", async (_event: unknown, _ctx: Ctx) => {
-    if (session) session.turns += 1;
-  });
-
   // --- the recorded gap ------------------------------------------------------
   // Checked on agent_end, NOT turn_end: one prompt can span several agent turns
   // (tool-call rounds), and turn_end would emit one `telemetry_missing` per round
@@ -266,6 +259,8 @@ export default function learning(pi: ExtensionAPI) {
   pi.on("session_shutdown", async (_event: unknown, ctx: Ctx) => {
     if (!session) return;
     if (isCourseDir(ctx.cwd)) {
+      // `turns` counts USER PROMPTS, not agent turns — see countUserPrompts.
+      const turns = countUserPrompts(ctx.sessionManager.getEntries());
       appendEvent(ctx.cwd, {
         v: EVENT_VERSION,
         ts: iso(),
@@ -273,7 +268,7 @@ export default function learning(pi: ExtensionAPI) {
         session_id: session.id,
         session_file: session.file,
         cwd: ctx.cwd,
-        turns: session.turns,
+        turns,
       });
       try {
         writeSession(ctx.cwd, session, true);

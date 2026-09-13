@@ -185,6 +185,19 @@ export function projectSchema(
   const lines = text.split("\n");
   const sepAt = tableSeparatorIndex(lines, "Corrected model");
   if (sepAt !== -1) {
+    // Surface pre-existing duplicate ids. They are NOT repaired: a duplicate row is
+    // indistinguishable from an authored row by id alone, so automated deletion is the
+    // one move that can destroy real content. Manual dedupe is documented in
+    // docs/EVENT-SCHEMA.md.
+    const idCounts = new Map<string, number>();
+    for (let i = sepAt + 1; i < lines.length && lines[i].startsWith("|"); i++) {
+      const m = /^\|\s*([A-Za-z]+-\d+)\s*\|/.exec(lines[i]);
+      if (m) idCounts.set(m[1], (idCounts.get(m[1]) ?? 0) + 1);
+    }
+    for (const [id, count] of idCounts) {
+      if (count > 1) warnings.push(`duplicate-registry-row:${id}`);
+    }
+
     let inserted = 0;
     for (const row of [...state.misconceptions.values()].sort((a, b) => a.id.localeCompare(b.id))) {
       const newRow = `| ${row.id} | ${row.concept} | ${sanitizeCell(row.description)} | ${sanitizeCell(

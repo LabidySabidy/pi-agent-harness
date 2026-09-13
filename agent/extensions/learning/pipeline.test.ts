@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { reduceEvents, telemetryToEvents, type LearningEvent } from "./events.ts";
-import { detectGrillTurn, lastUserMessageText } from "./signal.ts";
+import { detectGrillTurn, lastUserMessageText, countUserPrompts } from "./signal.ts";
 import { renderSessionMarkdown, sessionFileName, staleSessions } from "./sessions.ts";
 
 const META = { ts: "2026-09-13T07:41:02.311Z", session_id: "01a090ae-x", session_file: "/t.jsonl", cwd: "/c", source: "tool" as const };
@@ -153,4 +153,26 @@ test("staleSessions finds sessions left open by a crash, not the current one", (
   ]);
   const stale = staleSessions(state, "current");
   assert.deepEqual(stale, ["crashed"]);
+});
+
+// ---------------------------------------------------------------------------
+// turns = user prompts, not agent turns
+// ---------------------------------------------------------------------------
+
+test("countUserPrompts counts exchanges, not the agent turns a single prompt spawns", () => {
+  // Shape of a real grill run: ONE user prompt, then several agent turns
+  // (tool-call rounds) before the final answer.
+  const entries = [
+    userMsg('<skill name="grill-misconception" location="/s.md">\nbody\n</skill>'),
+    { type: "message", message: { role: "assistant", content: "reading files" } },
+    { type: "toolResult", message: { role: "toolResult", content: "file contents" } },
+    { type: "message", message: { role: "assistant", content: "reading more" } },
+    { type: "toolResult", message: { role: "toolResult", content: "more" } },
+    { type: "message", message: { role: "assistant", content: "here is your question" } },
+  ];
+  assert.equal(countUserPrompts(entries), 1);
+
+  // Two exchanges -> 2.
+  assert.equal(countUserPrompts([...entries, userMsg("4"), { type: "message", message: { role: "assistant", content: "ok" } }]), 2);
+  assert.equal(countUserPrompts([]), 0);
 });
