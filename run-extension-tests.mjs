@@ -48,7 +48,7 @@ const DECLARED = [
   { file: "agent/extensions/learning/learning.test.ts", min: 23 },
   { file: "agent/extensions/learning/pipeline.test.ts", min: 12 },
   { file: "agent/extensions/passivity/passivity.test.ts", min: 6 },
-  { file: "agent/extensions/bash-quiet.test.ts", min: 6 },
+  { file: "tests/bash-quiet.test.ts", min: 6 },
   { file: "run-extension-tests.test.ts", min: 3 },
 ];
 
@@ -106,6 +106,21 @@ function findTests(dir) {
 }
 
 const extensionsDir = join(ROOT, "agent", "extensions");
+
+// A test file sitting DIRECTLY in the extensions directory is fatal to pi itself: it auto-discovers
+// `~/.pi/agent/extensions/*.ts` as global extensions, tries to run the test file as one, finds no
+// factory, and refuses to start — in every project, not just this one. Asked here so the guard
+// catches it at the desk; observed live on 2026-09-13 and recorded as GL-027.
+for (const entry of readdirSync(extensionsDir, { withFileTypes: true })) {
+  if (entry.isFile() && entry.name.endsWith(".test.ts")) {
+    problems.push(
+      `FATAL PLACEMENT agent/extensions/${entry.name} — pi auto-discovers direct *.ts files here as ` +
+        `global extensions, so this file breaks the startup of every pi session (GL-027). ` +
+        `Move it to tests/.`,
+    );
+  }
+}
+
 const found = existsSync(extensionsDir) ? findTests(extensionsDir).map((f) => toPosix(relative(ROOT, f))) : [];
 const declaredNames = new Set(declared.map((d) => toPosix(d.file)));
 for (const file of found) {

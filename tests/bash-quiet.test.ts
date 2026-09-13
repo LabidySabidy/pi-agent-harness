@@ -10,7 +10,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { VERIFY_PATTERNS, VERIFY_FAILURE_HINTS } from "./bash-quiet.ts";
+import { VERIFY_PATTERNS, VERIFY_FAILURE_HINTS } from "../agent/extensions/bash-quiet.ts";
 
 const isVerify = (cmd: string) => VERIFY_PATTERNS.some((re) => re.test(cmd));
 const blocks = (text: string) => VERIFY_FAILURE_HINTS.some((re) => re.test(text));
