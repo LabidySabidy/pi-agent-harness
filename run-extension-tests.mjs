@@ -32,7 +32,7 @@
  *
  * Run:  node ~/.pi/run-extension-tests.mjs      (from any directory)
  */
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
@@ -107,16 +107,27 @@ function findTests(dir) {
 
 const extensionsDir = join(ROOT, "agent", "extensions");
 
-// A test file sitting DIRECTLY in the extensions directory is fatal to pi itself: it auto-discovers
-// `~/.pi/agent/extensions/*.ts` as global extensions, tries to run the test file as one, finds no
-// factory, and refuses to start — in every project, not just this one. Asked here so the guard
-// catches it at the desk; observed live on 2026-09-13 and recorded as GL-027.
+// pi auto-discovers `~/.pi/agent/extensions/*.ts` as GLOBAL extensions and refuses to start on any
+// file that exports no factory — in every project, not just this one. A test file is only the most
+// likely way to hit it, so the check is on the MECHANISM: any direct *.ts here that exports nothing.
+// Asked at the desk because the symptom appears in the consumer, layers away from the cause;
+// observed live on 2026-09-13 and recorded as GL-027.
 for (const entry of readdirSync(extensionsDir, { withFileTypes: true })) {
-  if (entry.isFile() && entry.name.endsWith(".test.ts")) {
+  if (!entry.isFile() || !entry.name.endsWith(".ts")) continue;
+  const rel = `agent/extensions/${entry.name}`;
+  const source = readFileSync(join(extensionsDir, entry.name), "utf8");
+  // `export` anywhere includes `export default`, `export const`, and `export { … }`.
+  const exportsSomething = /^\s*export\b/m.test(source);
+  if (entry.name.endsWith(".test.ts")) {
     problems.push(
-      `FATAL PLACEMENT agent/extensions/${entry.name} — pi auto-discovers direct *.ts files here as ` +
-        `global extensions, so this file breaks the startup of every pi session (GL-027). ` +
-        `Move it to tests/.`,
+      `FATAL PLACEMENT ${rel} — pi auto-discovers direct *.ts files here as global extensions, so ` +
+        `this file breaks the startup of every pi session (GL-027). Move it to tests/.`,
+    );
+  } else if (!exportsSomething) {
+    problems.push(
+      `FATAL PLACEMENT ${rel} — it exports nothing, and pi loads EVERY direct *.ts here as a global ` +
+        `extension. A file with no factory makes pi refuse to start in every project (GL-027). ` +
+        `Move it under a subdirectory with an index.ts entry point, or delete it.`,
     );
   }
 }
