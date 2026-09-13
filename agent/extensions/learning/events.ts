@@ -8,7 +8,7 @@
  * The reducer is pure and order-tolerant within a single writer: file order is
  * chronological, and replaying the whole log must always yield the same state.
  */
-import type { Badge, Sm2 } from "./telemetry.ts";
+import type { Badge, Sm2, Telemetry } from "./telemetry.ts";
 
 export type EventKind =
   | "session_start"
@@ -44,6 +44,8 @@ export interface LearningEvent {
   turns?: number;
   model?: string;
   concepts_touched?: string[];
+  /** How the payload reached us: a validated tool call (preferred) or the legacy tag. */
+  source?: "tool" | "tag";
 }
 
 export interface MisconceptionRow {
@@ -232,4 +234,56 @@ export function parseEventLog(body: string): { events: LearningEvent[]; malforme
     else malformed.push(line);
   }
   return { events, malformed };
+}
+
+/**
+ * Expand one validated telemetry payload into log events. Kept pure so the
+ * expansion is testable without the extension runtime.
+ */
+export function telemetryToEvents(
+  t: Telemetry,
+  meta: {
+    ts: string;
+    session_id?: string | null;
+    session_file?: string | null;
+    cwd?: string;
+    source: "tool" | "tag";
+  },
+): LearningEvent[] {
+  const base = {
+    v: EVENT_VERSION,
+    ts: meta.ts,
+    session_id: meta.session_id ?? null,
+    session_file: meta.session_file ?? null,
+    cwd: meta.cwd,
+  };
+  const out: LearningEvent[] = [
+    { ...base, kind: "badge", concept: t.concept, to: t.status, status: t.status, source: meta.source },
+    { ...base, kind: "sm2", concept: t.concept, sm2: t.sm2 },
+  ];
+
+  if (t.misconception) {
+    out.push(
+      t.misconception.status === "resolved"
+        ? {
+            ...base,
+            kind: "misconception_resolved",
+            concept: t.concept,
+            id: t.misconception.id,
+            corrected: t.misconception.corrected ?? "",
+          }
+        : {
+            ...base,
+            kind: "misconception_open",
+            concept: t.concept,
+            id: t.misconception.id,
+            description: t.misconception.description,
+          },
+    );
+  }
+
+  if (t.note) out.push({ ...base, kind: "note", concept: t.concept, text: t.note });
+  if (t.decision) out.push({ ...base, kind: "decision", concept: t.concept, text: t.decision });
+
+  return out;
 }
