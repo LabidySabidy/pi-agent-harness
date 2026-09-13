@@ -19,6 +19,11 @@
  *      that silently shrinks fails, and the number attached to each file is visible — which is what
  *      an aggregate hides.
  *
+ * A floor is a MINIMUM, so it can go stale: add tests (41 -> 46), leave the floor at 41, and a later
+ * regression down to 42 passes while covering less than it did. That is the same silent-coverage hole
+ * one level up, so a count ABOVE its floor prints a WARN naming both numbers. It is not a failure —
+ * a guard that cries wolf gets ignored — but staleness stops being invisible.
+ *
  * Run from the harness root:  node run-extension-tests.mjs
  */
 import { existsSync, readdirSync, statSync } from "node:fs";
@@ -80,6 +85,7 @@ if (problems.length > 0) {
 // --- 3. run each file separately, attribute the count ------------------------
 console.log("Extension tests\n");
 const results = [];
+const stale = [];
 let total = 0;
 let failures = 0;
 
@@ -110,6 +116,10 @@ for (const { file, min } of DECLARED) {
         ? "ok"
         : "run errored";
   console.log(`  ${passed ? "PASS" : "FAIL"}  ${file}  — ${count} tests, ${note}`);
+  if (passed && count > min) {
+    stale.push({ file, count, min });
+    console.log(`        WARN  ${count} > floor ${min} — raise it, or this file can shrink back to ${min} unnoticed`);
+  }
   results.push({ file, count, min, passed });
 }
 
@@ -125,4 +135,12 @@ if (total < floor) {
   process.exit(1);
 }
 
+if (stale.length > 0) {
+  console.log(
+    `
+  ${stale.length} floor(s) are stale — the file has grown past its declared minimum. ` +
+      `Not a failure, but raise them so a regression cannot hide under the old number:`,
+  );
+  for (const s of stale) console.log(`    ${s.file}: ${s.count} tests, floor ${s.min}`);
+}
 console.log(`  every declared file ran, and every count is attributable above.`);
