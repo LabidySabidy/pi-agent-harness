@@ -7,7 +7,7 @@
  *   `node --test a.test.ts b.test.ts` where `b.test.ts` does NOT exist runs only `a` and **exits 0**.
  *   A missing file is silently ignored, so a green aggregate number can exclude the very tests you
  *   just wrote. That happened: a new extension's tests were reported as running while the file lived
- *   only on an unmerged branch. The aggregate said "35" and I read "41".
+ *   only on an unmerged branch. The aggregate said "35" and was read as "41".
  *
  * This runner refuses to be ambushed by that, in three mechanical ways:
  *
@@ -20,35 +20,76 @@
  *      an aggregate hides.
  *
  * A floor is a MINIMUM, so it can go stale: add tests (41 -> 46), leave the floor at 41, and a later
- * regression down to 42 passes while covering less than it did. That is the same silent-coverage hole
- * one level up, so a count ABOVE its floor prints a WARN naming both numbers. It is not a failure —
- * a guard that cries wolf gets ignored — but staleness stops being invisible.
+ * regression down to 42 passes while covering less than it did. A count ABOVE its floor therefore
+ * prints a WARN naming both numbers. Not a failure — a guard that cries wolf gets ignored — but
+ * staleness stops being invisible.
  *
- * Run from the harness root:  node run-extension-tests.mjs
+ * RESOLUTION: every path is resolved from THIS SCRIPT'S location, never from `process.cwd()`. Run
+ * from anywhere and it tests the same tree. That is not a convenience: when paths were resolved
+ * against the working directory, running from outside the harness reported MISSING and pointed at a
+ * branch problem, which is a confident diagnosis of the wrong cause — the exact failure this file
+ * exists to prevent.
+ *
+ * Run:  node ~/.pi/run-extension-tests.mjs      (from any directory)
  */
-import { existsSync, readdirSync, statSync } from "node:fs";
-import { join, relative, sep } from "node:path";
+import { existsSync, readdirSync } from "node:fs";
+import { dirname, join, relative, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 
+/** The harness root: the script's own directory, so cwd never changes what is tested. */
+const ROOT = dirname(fileURLToPath(import.meta.url));
+
 /**
- * The declaration. `min` is the floor for that file: raise it when you add tests. It is deliberately
- * a floor rather than an equality so that ADDING a test does not fail the run — only losing one does.
+ * The declaration. `min` is the floor for that file: raise it when you add tests. A floor rather than
+ * an equality so that ADDING a test does not fail the run — only losing one does.
  */
 const DECLARED = [
   { file: "agent/extensions/learning/learning.test.ts", min: 23 },
   { file: "agent/extensions/learning/pipeline.test.ts", min: 12 },
   { file: "agent/extensions/passivity/passivity.test.ts", min: 6 },
+  { file: "run-extension-tests.test.ts", min: 3 },
 ];
 
-const root = process.cwd();
+// This runner's own test invokes this runner. Without a stop it recurses forever, so the self-test
+// is dropped from the declaration while it is being run from inside a self-test.
+const SELF_TEST = "run-extension-tests.test.ts";
+const declared = process.env.GUARD_SELFTEST === "1" ? DECLARED.filter((d) => d.file !== SELF_TEST) : DECLARED;
+
+const toPosix = (p) => p.split(sep).join("/");
+
+/**
+ * The environment for child test runs.
+ *
+ * Node's test runner marks its children with NODE_TEST_CONTEXT. That marker is inherited by our own
+ * `node --test` invocations, and a process carrying it does NOT behave as a test runner — it reports
+ * **0 tests**. A guard driven from inside a test process (its own test, a CI wrapper) would fail every
+ * file with "0 tests, BELOW FLOOR" and look like missing coverage rather than a sandboxed env.
+ * GUARD_SELFTEST stops the guard's own test from recursing into the guard.
+ */
+function childEnv() {
+  const env = { ...process.env, GUARD_SELFTEST: "1" };
+  delete env.NODE_TEST_CONTEXT;
+  return env;
+}
+const abs = (file) => join(ROOT, file);
 const problems = [];
 
+// --- 0. we are where we think we are -----------------------------------------
+if (!existsSync(join(ROOT, "agent", "extensions"))) {
+  console.error(`REFUSED: ${ROOT} does not look like the harness root (no agent/extensions).`);
+  process.exit(1);
+}
+
 // --- 1. every declared file must exist --------------------------------------
-const missing = DECLARED.filter((d) => !existsSync(join(root, d.file)));
-for (const m of missing) {
+for (const d of declared) {
+  if (existsSync(abs(d.file))) continue;
+  const elsewhere = existsSync(join(process.cwd(), d.file));
   problems.push(
-    `MISSING  ${m.file} — declared but not on disk. ` +
-      `If you wrote it on a branch, the branch is not checked out (GL-026): the install path IS the working tree.`,
+    `MISSING  ${d.file} — declared but not present under ${ROOT}.` +
+      (elsewhere
+        ? " (It exists under the CURRENT directory, which is a different tree — this run always tests the harness.)"
+        : " If you wrote it on a branch, the branch is not checked out (GL-026): the install path IS the working tree."),
   );
 }
 
@@ -63,14 +104,11 @@ function findTests(dir) {
   return out;
 }
 
-const extensionsDir = join(root, "agent", "extensions");
-// `relative()` returns backslashes on Windows and the declaration uses forward slashes, so both
-// sides are normalised before comparing — a separator difference must not read as a missing file.
-const toPosix = (p) => p.split(sep).join("/");
-const found = existsSync(extensionsDir) ? findTests(extensionsDir).map((f) => toPosix(relative(root, f))) : [];
-const declaredNames = new Set(DECLARED.map((d) => toPosix(d.file)));
+const extensionsDir = join(ROOT, "agent", "extensions");
+const found = existsSync(extensionsDir) ? findTests(extensionsDir).map((f) => toPosix(relative(ROOT, f))) : [];
+const declaredNames = new Set(declared.map((d) => toPosix(d.file)));
 for (const file of found) {
-  if (!declaredNames.has(toPosix(file))) {
+  if (!declaredNames.has(file)) {
     problems.push(`UNLISTED ${file} — on disk but not declared, so it would never run. Add it to DECLARED.`);
   }
 }
@@ -83,17 +121,22 @@ if (problems.length > 0) {
 }
 
 // --- 3. run each file separately, attribute the count ------------------------
-console.log("Extension tests\n");
+console.log(`Extension tests (harness root: ${ROOT})\n`);
 const results = [];
 const stale = [];
 let total = 0;
 let failures = 0;
 
-for (const { file, min } of DECLARED) {
+for (const { file, min } of declared) {
   let output = "";
   let ok = true;
   try {
-    output = execFileSync(process.execPath, ["--test", file], { encoding: "utf8", stdio: "pipe" });
+    output = execFileSync(process.execPath, ["--test", abs(file)], {
+      encoding: "utf8",
+      stdio: "pipe",
+      cwd: ROOT,
+      env: childEnv(),
+    });
   } catch (err) {
     ok = false;
     output = `${err.stdout ?? ""}${err.stderr ?? ""}`;
@@ -123,7 +166,7 @@ for (const { file, min } of DECLARED) {
   results.push({ file, count, min, passed });
 }
 
-const floor = DECLARED.reduce((sum, d) => sum + d.min, 0);
+const floor = declared.reduce((sum, d) => sum + d.min, 0);
 console.log(`\n  total ${total} tests across ${results.length} files (floor ${floor})`);
 
 if (failures > 0) {
@@ -137,8 +180,7 @@ if (total < floor) {
 
 if (stale.length > 0) {
   console.log(
-    `
-  ${stale.length} floor(s) are stale — the file has grown past its declared minimum. ` +
+    `\n  ${stale.length} floor(s) are stale — the file has grown past its declared minimum. ` +
       `Not a failure, but raise them so a regression cannot hide under the old number:`,
   );
   for (const s of stale) console.log(`    ${s.file}: ${s.count} tests, floor ${s.min}`);
