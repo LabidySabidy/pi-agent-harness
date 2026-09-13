@@ -29,14 +29,14 @@ import { randomBytes } from "node:crypto";
 // Conservative on purpose: a false positive swallows output the model needs.
 // Patterns anchor at start-of-string or after a shell separator (space ; & |)
 // so "cat gradle-output.txt" does not match.
-const VERIFY_PATTERNS: RegExp[] = [
+export const VERIFY_PATTERNS: RegExp[] = [
   /(^|[\s;&|])(\.\/)?gradlew?(\s|$)/, // ./gradlew build, gradle test
   /(^|[\s;&|])(\.\/)?mvnw?(\s|$)/, // mvn test/package/checkstyle, ./mvnw
   /(^|[\s;&|])tsc(\s|$)/, // tsc, npx tsc --noEmit
   /(^|[\s;&|])(npm|pnpm|yarn|bun)(\s+run)?\s+(build|test|lint|typecheck|tsc|check)(\s|$)/,
   /(^|[\s;&|])(cargo|go|make|ninja)\s+(build|test|lint|check)(\s|$)/,
   /(^|[\s;&|])(pytest|ruff|mypy|flake8|eslint|vitest|jest|checkstyle)(\s|$)/,
-  /(^|[\s;&|])node\s+(?:--[\w-]+\s+)*--test(?:\s|$)/, // node --test, node --flag --test
+  /(^|[\s;&|])node\b[^|;&]*--test(?:\s|$)/, // node --test, node --import tsx --test
 ];
 
 // Any other successful output over this many lines collapses to a head/tail
@@ -53,7 +53,7 @@ const WINDOW_TAIL_LINES = 25;
 // Two tiers: verification output treats "error"/"failed" as genuine failure;
 // general output does not, because those words are often just data (package
 // names like es-errors, log lines). General only trusts unambiguous signals.
-const VERIFY_FAILURE_HINTS: RegExp[] = [
+export const VERIFY_FAILURE_HINTS: RegExp[] = [
   /\bEXIT:\s*[1-9]\d*\b/, // the model's own exit-code echo idiom
   // "error"/"fail" families, but NOT zero counts — passing test summaries print
   // "fail 0" / "0 errors", and matching those blocked the collapse.
@@ -62,7 +62,7 @@ const VERIFY_FAILURE_HINTS: RegExp[] = [
   /\baborted\b/i,
   /\btimed out\b/i,
 ];
-const GENERAL_FAILURE_HINTS: RegExp[] = [
+export const GENERAL_FAILURE_HINTS: RegExp[] = [
   /\bEXIT:\s*[1-9]\d*\b/, // the model's own exit-code echo idiom
   /\baborted\b/i,
   /\btimed out\b/i,
