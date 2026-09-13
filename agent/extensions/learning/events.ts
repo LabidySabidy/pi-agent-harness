@@ -19,7 +19,9 @@ export type EventKind =
   | "misconception_resolved"
   | "note"
   | "decision"
-  | "telemetry_missing";
+  | "telemetry_missing"
+  /** A quiz attempt, written by socrates-web. Course history, not concept telemetry. */
+  | "assessment_result";
 
 export const EVENT_VERSION = 1;
 
@@ -46,6 +48,13 @@ export interface LearningEvent {
   turns?: number;
   model?: string;
   concepts_touched?: string[];
+  /** assessment_result fields, written by socrates-web. */
+  unit?: number;
+  quiz_source?: string;
+  right?: number;
+  wrong?: number;
+  total?: number;
+  item_ids?: string[];
   /** How the payload reached us: a validated tool call (preferred) or the legacy tag. */
   source?: "tool" | "tag";
 }
@@ -128,6 +137,7 @@ const KINDS = new Set<EventKind>([
   "note",
   "decision",
   "telemetry_missing",
+  "assessment_result",
 ]);
 
 function conceptKey(name: string): string {
@@ -223,6 +233,12 @@ export function reduceEvents(events: LearningEvent[]): ReducedState {
           reason: e.reason ?? "unspecified",
           evidence: e.evidence,
         });
+        break;
+      }
+      case "assessment_result": {
+        // Deliberately does not feed any projection: a quiz attempt is course history, and no
+        // projection claims a mastery change from one. It is recorded so it is not lost, and so a
+        // future projection can read it without the log needing a rewrite.
         break;
       }
     }
