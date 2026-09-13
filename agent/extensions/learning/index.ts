@@ -136,6 +136,13 @@ export default function learning(pi: ExtensionAPI) {
             corrected: Type.Optional(
               Type.String({ description: "The corrected model in the learner's own words" }),
             ),
+            severity: Type.Optional(
+              Type.Union([Type.Literal("root"), Type.Literal("partial"), Type.Literal("edge")], {
+                description:
+                  "How the belief is wrong: root = core mental model is wrong; partial = right idea applied " +
+                  "wrongly; edge = isolated slip, not a model flaw. Omit when unrated — never guess.",
+              }),
+            ),
           }),
         ),
         note: Type.Optional(Type.String()),

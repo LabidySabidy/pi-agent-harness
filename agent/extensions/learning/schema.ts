@@ -185,6 +185,25 @@ export function projectSchema(
   const lines = text.split("\n");
   const sepAt = tableSeparatorIndex(lines, "Corrected model");
   if (sepAt !== -1) {
+    // --- additive migration to the 7-column registry (severity) -----------------
+    // Guarded: only fires on exactly the known 6-column shape, only appends a column,
+    // and never removes one. Idempotent — a second pass finds 7 and does nothing.
+    const headerCells = splitRow(lines[sepAt - 1]);
+    const sepCells = splitRow(lines[sepAt]);
+    const isKnownSixColumnShape =
+      headerCells.length === 6 &&
+      headerCells.some((c) => c.includes("Corrected model")) &&
+      sepCells.length === 6;
+    if (isKnownSixColumnShape) {
+      lines[sepAt - 1] = lines[sepAt - 1].replace(/\|\s*$/, "| Severity |");
+      lines[sepAt] = lines[sepAt].replace(/\|\s*$/, "|--------|");
+      for (let i = sepAt + 1; i < lines.length && lines[i].startsWith("|"); i++) {
+        if (splitRow(lines[i]).length === 6) lines[i] = lines[i].replace(/\|\s*$/, "|  |");
+      }
+      changed++;
+      warnings.push("registry-migrated-to-7-columns");
+    }
+
     // Surface pre-existing duplicate ids. They are NOT repaired: a duplicate row is
     // indistinguishable from an authored row by id alone, so automated deletion is the
     // one move that can destroy real content. Manual dedupe is documented in
@@ -202,7 +221,7 @@ export function projectSchema(
     for (const row of [...state.misconceptions.values()].sort((a, b) => a.id.localeCompare(b.id))) {
       const newRow = `| ${row.id} | ${row.concept} | ${sanitizeCell(row.description)} | ${sanitizeCell(
         row.corrected,
-      )} | ${row.status} | ${row.date} |`;
+      )} | ${row.status} | ${row.date} | ${row.severity || ""} |`;
       const at = lines.findIndex((l) => l.startsWith(`| ${row.id} `));
       if (at !== -1) {
         if (lines[at] !== newRow) {

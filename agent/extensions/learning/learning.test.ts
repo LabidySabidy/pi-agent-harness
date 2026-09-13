@@ -7,7 +7,9 @@ import assert from "node:assert/strict";
 import {
   extractAndClean,
   extractTelemetry,
+  isSeverity,
   normalizeJson,
+  severityState,
   validateTelemetry,
 } from "./telemetry.ts";
 import {
@@ -287,4 +289,80 @@ test("projectSchema flags pre-existing duplicate ids without repairing them", ()
   assert.equal(mis001.length, 2, "both duplicate rows preserved — nothing deleted");
   assert.equal(text.split("\n").filter((l) => l.startsWith("| MIS-009 ")).length, 1);
   assert.ok(!warnings.some((w) => w.includes("MIS-009")), "a clean new id raises no duplicate warning");
+});
+
+// ---------------------------------------------------------------------------
+// misconception severity
+// ---------------------------------------------------------------------------
+
+test("severityState collapses stored status + severity into the five display states", () => {
+  assert.equal(severityState("open", "root"), "root");
+  assert.equal(severityState("open", "partial"), "partial");
+  assert.equal(severityState("open", "edge"), "edge");
+  assert.equal(severityState("open", ""), "unrated");
+  assert.equal(severityState("open", undefined), "unrated");
+  assert.equal(severityState("resolved", "root"), "resolved", "resolution outranks a stale rating");
+  assert.equal(severityState("resolved", ""), "resolved");
+});
+
+test("validateTelemetry accepts root|partial|edge and ignores an invalid severity", () => {
+  const mk = (severity: unknown) =>
+    validateTelemetry({
+      concept: "x",
+      status: "🟨",
+      misconception: { id: "MIS-1", description: "d", severity },
+    });
+  assert.equal(mk("root")?.misconception?.severity, "root");
+  assert.equal(mk("edge")?.misconception?.severity, "edge");
+  assert.equal(mk("resolved")?.misconception?.severity, undefined, "resolved is a status, not a severity");
+  assert.equal(mk(7)?.misconception?.severity, undefined);
+  assert.equal(mk(undefined)?.misconception?.severity, undefined);
+  assert.equal(isSeverity("root"), true);
+  assert.equal(isSeverity("unrated"), false, "unrated is derived, not storable");
+});
+
+test("reduceEvents: severity is set, preserved when omitted, and updated on re-assessment", () => {
+  const open = (severity?: unknown) =>
+    ev({
+      kind: "misconception_open",
+      id: "MIS-009",
+      concept: "react-state",
+      description: "setState is sync",
+      ...(severity ? { severity } : {}),
+    });
+
+  assert.equal(reduceEvents([open()]).misconceptions.get("MIS-009")?.severity, "", "absent -> unrated");
+  assert.equal(reduceEvents([open("root")]).misconceptions.get("MIS-009")?.severity, "root");
+
+  // A later turn that omits severity must NOT clear the existing rating.
+  const preserved = reduceEvents([open("root"), open()]);
+  assert.equal(preserved.misconceptions.get("MIS-009")?.severity, "root");
+
+  // Re-assessment may downgrade it.
+  const updated = reduceEvents([open("root"), open("edge")]);
+  assert.equal(updated.misconceptions.get("MIS-009")?.severity, "edge");
+});
+
+test("projectSchema writes severity as the 7th column", () => {
+  const state = reduceEvents([
+    ev({ kind: "misconception_open", id: "MIS-009", concept: "react-state", description: "d", severity: "partial" }),
+  ]);
+  const { text } = projectSchema(SCHEMA, state, { today: "2026-09-13" });
+  assert.match(text, /\| MIS-009 \| react-state \| d \|  \| open \| 2026-09-13 \| partial \|/);
+  assert.match(text, /^\| ID \| Concept \| Misconception \(what I believed\) \| Corrected model \(my own words\) \| Status \| Date \| Severity \|$/m);
+});
+
+test("projectSchema migrates a 6-column registry additively, then stops", () => {
+  const state = reduceEvents([
+    ev({ kind: "misconception_open", id: "MIS-009", concept: "react-state", description: "d", severity: "root" }),
+  ]);
+  const first = projectSchema(SCHEMA, state, { today: "2026-09-13" });
+  assert.ok(first.warnings.includes("registry-migrated-to-7-columns"));
+  assert.match(first.text, /\| MIS-001 \| react-state \|.*\| resolved \| 2026-07-01 \|  \|/, "authored row padded, not removed");
+  assert.match(first.text, /\| MIS-002 \| component-lifecycle \|.*\| open \| 2026-08-15 \|  \|/);
+
+  const second = projectSchema(first.text, state, { today: "2026-09-13" });
+  assert.ok(!second.warnings.includes("registry-migrated-to-7-columns"), "migration is one-shot");
+  assert.equal(second.text, first.text);
+  assert.equal(second.changed, 0, "idempotent after migration");
 });

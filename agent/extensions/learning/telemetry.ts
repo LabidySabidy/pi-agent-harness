@@ -18,6 +18,54 @@ export const BADGE_LABEL: Record<Badge, string> = {
 /** Emoji are multi-code-unit — alternation, never a `[]` character class. */
 export const BADGE_ALT = "(?:🟥|🟨|🟩|🟦|⬜)";
 
+/**
+ * Misconception severity — the three ACTIVE ratings a tutor may emit.
+ * Not to be confused with the mastery scale: this describes how a misconception is
+ * wrong, not how well a concept is known.
+ *
+ * `resolved` and `unrated` are display states derived from status + emptiness, so
+ * they are deliberately not storable values:
+ *   display = status === "resolved" ? "resolved" : (severity || "unrated")
+ *
+ * Store one of `root` / `partial` / `edge`, or nothing. Never infer severity from the
+ * misconception prose — unrated must stay honest.
+ */
+export const SEVERITIES = ["root", "partial", "edge"] as const;
+export type Severity = (typeof SEVERITIES)[number];
+
+/** Display state: the three active ratings plus the two derived terminals. */
+export type SeverityState = Severity | "resolved" | "unrated";
+
+export const SEVERITY_LABEL: Record<SeverityState, string> = {
+  root: "Root",
+  partial: "Partial",
+  edge: "Edge",
+  resolved: "Resolved",
+  unrated: "Unrated",
+};
+
+/** Colour is applied as a stroke (dot + label), never a fill — per the design system. */
+export const SEVERITY_COLOR: Record<SeverityState, string | null> = {
+  root: "#c83f3f",
+  partial: "#d97706",
+  edge: "#d4a72c",
+  resolved: "#c9c6bd",
+  unrated: null,
+};
+
+export function isSeverity(v: unknown): v is Severity {
+  return typeof v === "string" && (SEVERITIES as readonly string[]).includes(v);
+}
+
+/** Collapse the stored pair into the five-state display value. */
+export function severityState(
+  status: "open" | "resolved",
+  severity: Severity | "" | undefined,
+): SeverityState {
+  if (status === "resolved") return "resolved";
+  return severity && isSeverity(severity) ? severity : "unrated";
+}
+
 export interface Sm2 {
   interval: number;
   ease_factor: number;
@@ -30,6 +78,8 @@ export interface MisconceptionPayload {
   status: "open" | "resolved";
   /** The user's own words for the corrected model. Optional on open events. */
   corrected?: string;
+  /** Tutor-emitted. Absent means unrated — never inferred from the prose. */
+  severity?: Severity;
 }
 
 export interface Telemetry {
@@ -98,6 +148,9 @@ export function validateTelemetry(data: unknown): Telemetry | null {
         status: m.status === "resolved" ? "resolved" : "open",
         corrected: toText(m.corrected),
       };
+      // Absent severity stays absent: a payload that omits it must not clear a
+      // rating recorded earlier.
+      if (isSeverity(m.severity)) t.misconception.severity = m.severity;
     }
   }
 
