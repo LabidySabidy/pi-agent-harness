@@ -232,18 +232,23 @@ export default function learning(pi: ExtensionAPI) {
     return { message: { ...message, content: cleanedContent } };
   });
 
-  // --- turn bookkeeping and the recorded gap -------------------------------
-  pi.on("turn_end", async (_event: unknown, ctx: Ctx) => {
-    if (!session) return;
-    session.turns += 1;
+  // --- turn bookkeeping ------------------------------------------------------ 
+  pi.on("turn_end", async (_event: unknown, _ctx: Ctx) => {
+    if (session) session.turns += 1;
+  });
 
+  // --- the recorded gap ------------------------------------------------------
+  // Checked on agent_end, NOT turn_end: one prompt can span several agent turns
+  // (tool-call rounds), and turn_end would emit one `telemetry_missing` per round
+  // for a single grill turn. agent_end fires once per run.
+  pi.on("agent_end", async (_event: unknown, ctx: Ctx) => {
+    if (!session) return;
     if (!telemetryThisTurn && isCourseDir(ctx.cwd)) {
       const signal = detectGrillTurn(ctx.sessionManager.getEntries());
       if (signal.active) {
-        const ts = iso();
         appendEvent(ctx.cwd, {
           v: EVENT_VERSION,
-          ts,
+          ts: iso(),
           kind: "telemetry_missing",
           session_id: session.id,
           session_file: session.file,
