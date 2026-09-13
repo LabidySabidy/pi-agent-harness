@@ -19,6 +19,7 @@ Play the Advisor: run a four-question onboarding interview (Destination, Baselin
 2. **One question at a time.** Ask Destination, then Baseline, then Deconstruction, then Cut List. Never batch them into one message.
 3. **Atomic sub-skills only.** Deconstruction yields the smallest units that can be practiced in one sitting and drive ~80% of results toward the destination.
 4. **Write files only after approval.** Show the complete deconstructed plan, get explicit sign-off, then instantiate.
+5. **The learner's title wins.** The `#` heading of `MISSION.md` is the course's NAME — the app slugs it into the directory, the URL and the catalogue. Someone may already have set it. Step 7 is the only time you may write it, and only under the condition stated there.
 
 ## Workflow
 
@@ -51,6 +52,32 @@ After approval, using filesystem tools (`read` + `write`, or `bash cp`):
    - `MISSION.md` — from the extracted Destination and motivations.
    - `PLAN.md` — a sequenced, week-by-week layout of the sub-skills, with the Cut List highlighted at the bottom.
    - `SCHEMA.md` — one concept card per deconstructed sub-skill, all initialized to ⬜ Unmeasured, with empty own-words definitions and SM-2 defaults (interval 0, ease_factor 2.5, repetitions 0).
+
+### Step 7 — Name the course
+
+The last thing you do, after the mission is settled. The heading is not decoration: the app derives the
+course's slug, its directory, its URL and its catalogue entry from that one line, so a good title is a
+real deliverable and a bad one becomes a folder name.
+
+1. `read` `MISSION.md` and look at the first `#` line.
+2. **If that line is still the seeded subject** — the learner's own words from the "Start a course" form,
+   typically a sentence or a topic phrase — you have the pen. Propose a short, elegant title and write it
+   as the H1:
+   - **2–5 words.** It is a name, not a goal. The goal lives in `## Destination` and stays there.
+   - **In the learner's vocabulary.** They have just spent this whole conversation telling you what they
+     care about; use their words for it, not the textbook's. If they said "make the slow endpoint fast",
+     the title is "Slow Endpoint Triage", not "Query Optimization Fundamentals".
+   - **A noun phrase, title case, no trailing period**, no "Introduction to", no "Mastering".
+   - Say the title back to them in one line so they can object — then write it.
+3. **If that line is NOT the seeded subject** — the learner has already changed it, from the app or by
+   hand — then **the learner has taken the pen and you must not write it.** Propose your title in
+   conversation instead ("I'd call this *Wheel Alignment by String* — want it?") and let them set it.
+   Overwriting a name someone chose mid-interview is never right, and you cannot tell the difference
+   between their edit and yours by looking at the file, so the comparison in step 2 is what decides it.
+4. If `MISSION.md` has no `#` line at all, add one at the top, above the blockquote.
+
+The app watches for this: the next time it reads the course it renames the directory to match the new
+heading. Do not move directories yourself, and do not add any alias or "old name" record.
 
 ## Telemetry / state
 - This skill WRITES the initial `SCHEMA.md` (all ⬜). It does not emit `<learning-telemetry>` blocks — that is the grill/recitation skills' job.
