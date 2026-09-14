@@ -101,3 +101,69 @@ test("the baseline is whatever was captured, not a hardcoded high", () => {
   assert.equal(r.level, "max");
   assert.equal(r.state.baseline, "max");
 });
+
+// --- run-scoped override (pi-web's declared assertion) ----------------------
+
+test("an assertion sets the override, the level, and clears the sweep counter", () => {
+  let s = initialState("high");
+  s = nextLevel(s, { kind: "inspect" }).state;
+  s = nextLevel(s, { kind: "inspect" }).state; // run = 2, one short of the threshold
+  const r = nextLevel(s, { kind: "assert", level: "max" });
+  assert.equal(r.level, "max");
+  assert.equal(r.state.override, "max");
+  assert.equal(r.state.run, 0);
+  assert.match(r.reason, /assert/);
+});
+
+test("an override SUSPENDS the sweep — inspections cannot turn thinking off", () => {
+  let s = nextLevel(initialState("high"), { kind: "assert", level: "max" }).state;
+  for (let i = 0; i < 6; i++) {
+    const r = nextLevel(s, { kind: "inspect" });
+    assert.equal(r.level, "max", `inspection ${i + 1} must not override the assertion`);
+    s = r.state;
+  }
+});
+
+test("an override suspends the error reset too — the user's level holds", () => {
+  const s = nextLevel(initialState("high"), { kind: "assert", level: "low" }).state;
+  const r = nextLevel(s, { kind: "error" });
+  assert.equal(r.level, "low");
+});
+
+test("an override suspends non-inspection work too", () => {
+  const s = nextLevel(initialState("high"), { kind: "assert", level: "max" }).state;
+  assert.equal(nextLevel(s, { kind: "other" }).level, "max");
+});
+
+test("a new prompt re-applies the override, not the baseline", () => {
+  const s = nextLevel(initialState("high"), { kind: "assert", level: "max" }).state;
+  const r = nextLevel(s, { kind: "newPrompt" });
+  assert.equal(r.level, "max");
+  assert.equal(r.state.override, "max");
+  assert.equal(r.state.run, 0);
+});
+
+test("settled clears the override and restores the baseline", () => {
+  const s = nextLevel(initialState("high"), { kind: "assert", level: "max" }).state;
+  const r = nextLevel(s, { kind: "settled" });
+  assert.equal(r.level, "high");
+  assert.equal(r.state.override, null);
+  assert.equal(r.state.run, 0);
+  assert.match(r.reason, /expire|settle/i);
+});
+
+test("after settled, a new prompt starts at the baseline again", () => {
+  let s = nextLevel(initialState("high"), { kind: "assert", level: "max" }).state;
+  s = nextLevel(s, { kind: "settled" }).state;
+  assert.equal(nextLevel(s, { kind: "newPrompt" }).level, "high");
+});
+
+test("an override expires at the end of its run, not the next one", () => {
+  // two runs back to back: the assertion must cover run 1 only
+  let s = initialState("high");
+  s = nextLevel(s, { kind: "newPrompt" }).state;
+  s = nextLevel(s, { kind: "assert", level: "max" }).state;
+  assert.equal(nextLevel(s, { kind: "inspect" }).level, "max"); // run 1, overridden
+  s = nextLevel(s, { kind: "settled" }).state;
+  assert.equal(nextLevel(s, { kind: "newPrompt" }).level, "high"); // run 2, baseline
+});
