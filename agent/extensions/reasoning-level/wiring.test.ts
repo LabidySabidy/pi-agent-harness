@@ -72,9 +72,10 @@ test("an ASSERTED thinking_level_select arms the override and moves the level", 
     asserted: true,
   });
   assert.deepEqual(pi.applied, ["max"]);
-  assert.equal(pi.entries.length, 1);
-  assert.match(String(pi.entries[0].data.reason), /assert/);
-  assert.equal(pi.entries[0].data.overridden, true);
+  const decisions = pi.entries.filter((e) => e.type === "reasoning-level");
+  assert.equal(decisions.length, 1);
+  assert.match(String(decisions[0].data.reason), /assert/);
+  assert.equal(decisions[0].data.overridden, true);
 });
 
 test("an asserted level SUSPENDS the sweep — inspections cannot take it away", () => {
@@ -146,9 +147,10 @@ test("an ASSERTED event that arrives AFTER the level already moved is still reco
     asserted: true,
   });
 
-  assert.equal(pi.entries.length, 1, "the assertion must be recorded even though the level was set first");
-  assert.match(String(pi.entries[0].data.reason), /assert/);
-  assert.equal(pi.entries[0].data.overridden, true);
+  const decisions = pi.entries.filter((e) => e.type === "reasoning-level");
+  assert.equal(decisions.length, 1, "the assertion must be recorded even though the level was set first");
+  assert.match(String(decisions[0].data.reason), /assert/);
+  assert.equal(decisions[0].data.overridden, true);
 });
 
 test("a policy no-op on the sweep path stays SILENT — only asserts force a record", () => {
