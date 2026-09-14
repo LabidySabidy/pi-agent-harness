@@ -167,3 +167,51 @@ test("an override expires at the end of its run, not the next one", () => {
   s = nextLevel(s, { kind: "settled" }).state;
   assert.equal(nextLevel(s, { kind: "newPrompt" }).level, "high"); // run 2, baseline
 });
+
+// --- writes force reasoning (PRECAUTION, not a fix for an observed defect) ----------------
+// A write changes state on disk, so it is never treated as mechanical: it breaks the sweep
+// count and restores the baseline. Measured context: 40 writes once ran at `off` across two
+// sessions. Whether any of those suffered is unmeasured — this is precaution, chosen because a
+// file write is the one action that alters the repository.
+
+test("a write breaks the sweep count and restores the baseline", () => {
+  let s = initialState("high");
+  s = nextLevel(s, { kind: "inspect" }).state;
+  s = nextLevel(s, { kind: "inspect" }).state; // run = 2, one short of firing
+  const r = nextLevel(s, { kind: "write" });
+  assert.equal(r.level, "high", "a write must not run at off");
+  assert.equal(r.state.run, 0, "the write resets the sweep count");
+  assert.match(r.reason, /write/i);
+});
+
+test("a write DURING a sweep restores thinking", () => {
+  let s = initialState("high");
+  for (let i = 0; i < 4; i++) s = nextLevel(s, { kind: "inspect" }).state;
+  assert.equal(s.level, "off", "the sweep fired");
+  const r = nextLevel(s, { kind: "write" });
+  assert.equal(r.level, "high");
+  assert.equal(r.state.run, 0);
+});
+
+test("two inspections after a write do not re-fire — the count restarted", () => {
+  let s = initialState("high");
+  for (let i = 0; i < 4; i++) s = nextLevel(s, { kind: "inspect" }).state; // off
+  s = nextLevel(s, { kind: "write" }).state; // back to high, run 0
+  assert.equal(nextLevel(s, { kind: "inspect" }).level, "high");
+  assert.equal(nextLevel(nextLevel(s, { kind: "inspect" }).state, { kind: "inspect" }).level, "high");
+  const third = nextLevel(nextLevel(nextLevel(s, { kind: "inspect" }).state, { kind: "inspect" }).state, { kind: "inspect" });
+  assert.equal(third.level, "off", "three fresh inspections fire again");
+});
+
+test("a write respects a configured baseline rather than hardcoding high", () => {
+  let s = initialState("low");
+  for (let i = 0; i < 4; i++) s = nextLevel(s, { kind: "inspect" }).state;
+  assert.equal(nextLevel(s, { kind: "write" }).level, "low");
+});
+
+test("a write does NOT override an explicit user assertion", () => {
+  const s = nextLevel(initialState("high"), { kind: "assert", level: "max" }).state;
+  const r = nextLevel(s, { kind: "write" });
+  assert.equal(r.level, "max", "the user's assertion outranks a write");
+  assert.equal(r.state.override, "max");
+});

@@ -39,6 +39,7 @@ export type Signal =
   | { kind: "error" }
   | { kind: "inspect" }
   | { kind: "other" }
+  | { kind: "write" }
   | { kind: "assert"; level: Level }
   | { kind: "settled" };
 
@@ -111,6 +112,25 @@ export function nextLevel(state: State, signal: Signal): Decision {
           state.override === null
             ? "new user prompt — reset to baseline"
             : `new prompt — override ${state.override} still in force`,
+      };
+
+    // A WRITE is never mechanical. It changes state on disk, so it is held to a higher bar
+    // than an inspection: it breaks the sweep count AND restores the baseline, even if the
+    // sweep had already fired earlier in the same turn. PRECAUTION, not a fix — 40 writes
+    // once ran at `off` across two sessions, and whether any of them suffered is unmeasured.
+    // An explicit user assertion still outranks it: the user asked for that level.
+    case "write":
+      if (state.override !== null) {
+        return {
+          state: { ...state, run: 0, level: state.override },
+          level: state.override,
+          reason: `write — override ${state.override} in force`,
+        };
+      }
+      return {
+        state: { ...state, run: 0, level: state.baseline },
+        level: state.baseline,
+        reason: "write in flight — reasoning on, sweep count cleared",
       };
 
     case "error":

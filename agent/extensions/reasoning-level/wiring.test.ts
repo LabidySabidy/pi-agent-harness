@@ -163,3 +163,36 @@ test("a policy no-op on the sweep path stays SILENT — only asserts force a rec
   pi.fire("tool_result", { toolName: "bash", input: { command: "cat PUZZLE.md" } });
   assert.deepEqual(pi.entries, [], "two inspections are a no-op at the baseline and must not log");
 });
+
+test("a tool_call for write/edit restores thinking, even mid-sweep", () => {
+  const pi = fakePi("high");
+  reasoningLevel(pi.api);
+  pi.fire("session_start");
+  // drive the sweep to `off`
+  pi.fire("tool_result", inspect);
+  pi.fire("tool_result", inspect);
+  pi.fire("tool_result", inspect);
+  assert.equal(pi.current(), "off", "the sweep fired");
+  pi.applied.length = 0;
+
+  // now a write is announced BEFORE it runs
+  pi.fire("tool_call", { toolName: "write", input: { path: "a.ts" } });
+  assert.deepEqual(pi.applied, ["high"], "a write must bring reasoning back");
+  assert.match(String(pi.entries.at(-1).data.reason), /write/i);
+});
+
+test("a tool_call for a read/bashing tool does NOT restore thinking", () => {
+  // Only writes get the higher bar; an inspection must not defeat the sweep.
+  const pi = fakePi("high");
+  reasoningLevel(pi.api);
+  pi.fire("session_start");
+  pi.fire("tool_result", inspect);
+  pi.fire("tool_result", inspect);
+  pi.fire("tool_result", inspect);
+  assert.equal(pi.current(), "off");
+  pi.applied.length = 0;
+  pi.fire("tool_call", { toolName: "read", input: { path: "a.ts" } });
+  pi.fire("tool_call", { toolName: "bash", input: { command: "cat a.ts" } });
+  assert.deepEqual(pi.applied, [], "non-writes must leave the level alone");
+  assert.equal(pi.current(), "off");
+});

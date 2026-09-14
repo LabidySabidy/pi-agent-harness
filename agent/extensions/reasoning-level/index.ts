@@ -87,6 +87,18 @@ export default function reasoningLevel(pi: ExtensionAPI): void {
 
   pi.on("agent_settled", () => applySignal({ kind: "settled" }));
 
+  // `tool_call` fires BEFORE the tool runs (agent-session.js:_installAgentToolHooks), which is the
+  // earliest a write is visible. A write is held to a higher bar than an inspection — see the
+  // `write` branch in level.ts for why this is precaution rather than a fix for an observed defect.
+  pi.on("tool_call", (event: any) => {
+    try {
+      const name = String(event?.toolName ?? "");
+      if (name === "write" || name === "edit") applySignal({ kind: "write" });
+    } catch {
+      /* a level decision must never break a tool call */
+    }
+  });
+
   pi.on("tool_result", (event: any) => {
     try {
       // A level moved outside this extension (TUI, /model, a clamp we did not make).
