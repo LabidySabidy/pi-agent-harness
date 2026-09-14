@@ -110,18 +110,24 @@ export default function reasoningLevel(pi: ExtensionAPI): void {
     const before = state.level;
     const decision = nextLevel(state, signal);
     state = decision.state;
-    apply(decision.level, decision.reason, before);
+    apply(decision.level, decision.reason, before, signal.kind === "assert");
   }
 
-  function apply(next: Level, reason: string, before: Level): void {
+  function apply(next: Level, reason: string, before: Level, force = false): void {
     // Compare against the level ACTUALLY in force, not our bookkeeping — the two can
     // diverge, and an unchanged level costs nothing (no cache churn, no log noise).
     const live = pi.getThinkingLevel() as Level;
     if (next === live) {
       state = { ...state, level: live };
-      return;
+      // An ASSERTION is forced into the log even when it changes nothing. pi-web calls
+      // setThinkingLevel BEFORE it emits `asserted` (so the clamp applies and previousLevel is
+      // accurate), so the level is usually already in force by the time this runs — and a silent
+      // return would leave a working override indistinguishable from a dropped event, which is
+      // exactly how this feature was misdiagnosed as broken. Policy no-ops stay silent.
+      if (!force) return;
+    } else {
+      pi.setThinkingLevel(next);
     }
-    pi.setThinkingLevel(next);
     // Read back: pi clamps, so record what is actually in force rather than what we asked
     // for. Without this, a clamped write would look like a foreign change to the divergence
     // check above and freeze the level for the rest of the run.

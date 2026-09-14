@@ -125,3 +125,39 @@ test("a malformed asserted level is rejected rather than trusted", () => {
   pi.fire("thinking_level_select", { level: "bogus", previousLevel: "high", asserted: true });
   assert.deepEqual(pi.applied, [], "an unknown level must not reach setThinkingLevel");
 });
+
+test("an ASSERTED event that arrives AFTER the level already moved is still recorded", () => {
+  // THE REAL pi-web ORDER, and the case the earlier tests could not catch: pi-web calls
+  // setThinkingLevel FIRST (so the clamp applies and previousLevel is accurate), THEN emits
+  // asserted. By the time this handler runs, the asserted level is already in force — so the
+  // idempotence guard sees next === live and would return without writing anything, leaving a
+  // working override indistinguishable from a dropped event.
+  const pi = fakePi("high");
+  reasoningLevel(pi.api);
+  pi.fire("session_start");
+
+  // simulate pi-web: the level moves out-of-band before the assertion is delivered
+  (pi.api as { setThinkingLevel: (l: string) => void }).setThinkingLevel("max");
+
+  pi.fire("thinking_level_select", {
+    type: "thinking_level_select",
+    level: "max",
+    previousLevel: "high",
+    asserted: true,
+  });
+
+  assert.equal(pi.entries.length, 1, "the assertion must be recorded even though the level was set first");
+  assert.match(String(pi.entries[0].data.reason), /assert/);
+  assert.equal(pi.entries[0].data.overridden, true);
+});
+
+test("a policy no-op on the sweep path stays SILENT — only asserts force a record", () => {
+  // The counterpart to the test above: forcing a log on every no-op would flood the transcript
+  // with entries for inspections that changed nothing.
+  const pi = fakePi("high");
+  reasoningLevel(pi.api);
+  pi.fire("session_start");
+  pi.fire("tool_result", { toolName: "bash", input: { command: "cat PUZZLE.md" } });
+  pi.fire("tool_result", { toolName: "bash", input: { command: "cat PUZZLE.md" } });
+  assert.deepEqual(pi.entries, [], "two inspections are a no-op at the baseline and must not log");
+});
