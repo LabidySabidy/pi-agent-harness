@@ -45,11 +45,11 @@ const ROOT = dirname(fileURLToPath(import.meta.url));
  * an equality so that ADDING a test does not fail the run — only losing one does.
  */
 const DECLARED = [
-  { file: "agent/extensions/learning/learning.test.ts", min: 23 },
-  { file: "agent/extensions/learning/pipeline.test.ts", min: 12 },
-  { file: "agent/extensions/passivity/passivity.test.ts", min: 6 },
+  // The learning and passivity extensions moved to socrates-web, which ships and loads its own copies
+  // (see the commit that removed them). Their tests went with them, and that repo's suite runs them:
+  //   node --test session.test.ts   (isolation) and the shipped copies are asserted by preflight.
   { file: "agent/extensions/reasoning-level/level.test.ts", min: 18 },
-  { file: "agent/extensions/reasoning-level/wiring.test.ts", min: 7 },
+  { file: "agent/extensions/reasoning-level/wiring.test.ts", min: 9 },
   { file: "run-extension-tests.test.ts", min: 3 },
 ];
 

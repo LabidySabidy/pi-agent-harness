@@ -61,7 +61,12 @@ test("the guard tests the harness tree no matter where it is run from", () => {
     // Same suites, same counts: the tree is resolved from the script, not the caller.
     const files = (out: string) => out.split("\n").filter((l) => /^ {2}(PASS|FAIL)/.test(l)).map((l) => l.split("—")[0].trim());
     assert.deepEqual(files(fromOutside.stdout), files(fromInside.stdout));
-    assert.ok(files(fromOutside.stdout).length >= 3, "it reported the declared suites");
+    // Counted from the guard's own summary rather than a hardcoded number: the self-test runs with
+    // GUARD_SELFTEST=1, which filters this file out, so the count changes whenever a suite is
+    // added or removed (as it did when the learning and passivity extensions moved to the app repo).
+    // The property under test is that BOTH runs reported the same, non-empty set — not how many exist.
+    const reported = Number(/total (\d+) tests across (\d+) files/.exec(fromOutside.stdout)?.[2] ?? 0);
+    assert.ok(reported > 0, `the guard must report at least one suite: ${fromOutside.stdout}`);
   } finally {
     rmSync(elsewhere, { recursive: true, force: true });
   }
