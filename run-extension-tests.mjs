@@ -49,6 +49,7 @@ const DECLARED = [
   { file: "agent/extensions/learning/pipeline.test.ts", min: 12 },
   { file: "agent/extensions/passivity/passivity.test.ts", min: 6 },
   { file: "agent/extensions/reasoning-level/level.test.ts", min: 18 },
+  { file: "agent/extensions/reasoning-level/wiring.test.ts", min: 7 },
   { file: "run-extension-tests.test.ts", min: 3 },
 ];
 

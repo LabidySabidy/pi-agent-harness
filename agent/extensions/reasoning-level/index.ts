@@ -32,6 +32,11 @@
  *   NOT context        an injected message invalidates the cached prefix, so a "reminder" is
  *                      not free
  *   NOT tool_call      blocking buys compliance with a wasted turn, at output prices
+ *
+ * KNOWN GAP: a level asserted MID-RUN takes effect in pi immediately, but this extension only
+ * suspends the policy from the next `message_start`/`agent_settled`. Between those, an in-flight
+ * `tool_result` can still apply a sweep decision. Narrow (it needs a click during an active run)
+ * and it fails toward the baseline rather than fighting the user; left open deliberately.
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import {
