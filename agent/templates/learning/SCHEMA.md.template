@@ -21,8 +21,14 @@
 > the "my own words" field is the Feynman artifact that earns a badge upgrade.
 > Badge ladder: ⬜ Unmeasured → 🟥 Weak → 🟨 Fair → 🟩 Good → 🟦 Mastered.
 
-<!-- CONCEPT CARD — duplicate per concept; keep the name lowercase-hyphen -->
-### ⬜ <concept-name>
+<!-- CONCEPT CARD — duplicate per concept. The heading is the concept's NAME, in Title Case:
+     "Wheel Anatomy And Tension Model", not "wheel-anatomy-and-tension-model" and not sentence case.
+     The app derives the slug id from it, and the slug is what the telemetry and MIS references key on,
+     so the heading is the only place the words live. Keep hyphens and underscores out — the app reads
+     either as a word separator, so a hyphen inside a compound word is lost. A word with internal
+     capitals is left alone, so assert, useState and E46 survive; a lowercase acronym is not
+     recoverable, so write KPI in capitals yourself. -->
+### ⬜ Wheel Anatomy And Tension Model
 
 - **Status:** ⬜ Unmeasured
 - **Definition (my own words):** <blank — fill during recitation, no jargon>

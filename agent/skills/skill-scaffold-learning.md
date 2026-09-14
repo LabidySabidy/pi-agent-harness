@@ -53,6 +53,25 @@ After approval, using filesystem tools (`read` + `write`, or `bash cp`):
    - `PLAN.md` — a sequenced, week-by-week layout of the sub-skills, with the Cut List highlighted at the bottom.
    - `SCHEMA.md` — one concept card per deconstructed sub-skill, all initialized to ⬜ Unmeasured, with empty own-words definitions and SM-2 defaults (interval 0, ease_factor 2.5, repetitions 0).
 
+     **Author the card headings in WORDS, in Title Case** — `### ⬜ Wheel Anatomy And Tension Model`,
+     not `### ⬜ wheel-anatomy-and-tension-model` and not sentence case. The heading is the concept's NAME:
+     it is what the learner reads in the unit rail, the lesson heading and the misconception tray, and the
+     app derives the slug id from it exactly as it derives a course's directory from the mission H1. The id
+     stays the telemetry key and the MIS reference, so nothing downstream changes.
+
+     The app Title Cases whatever it displays, from either an id or an authored heading, so a file written
+     in the wrong case still reads correctly — but the file is the source of truth a human opens, and
+     writing it the way it will be read means the disk and the screen agree.
+
+     Keep hyphens and underscores OUT of the heading. The app reads either as a word separator, so
+     `front-toe` would display as "Front Toe" and the hyphen would be lost. Use spaces, and let the app
+     derive the slug.
+
+     **Leave deliberate internal casing alone.** A word with an uppercase letter after its first character
+     is treated as intentional and passed through untouched, so `useState`, `iPhone`, `McDonald`, `KPI` and
+     `E46` survive. A lowercase acronym is not recoverable — `kpi` shows as `Kpi` — so write acronyms in
+     capitals yourself.
+
 ### Step 7 — Name the course
 
 The last thing you do, after the mission is settled. The heading is not decoration: the app derives the
