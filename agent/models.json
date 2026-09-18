@@ -1,0 +1,94 @@
+{
+  "providers": {
+    "deepseek": {
+      "models": [
+        {
+          "id": "deepseek-flash",
+          "name": "DeepSeek V4.1 Flash",
+          "api": "openai-completions",
+          "baseUrl": "https://api.deepseek.com",
+          "reasoning": true,
+          "input": ["text", "image"],
+          "contextWindow": 1000000,
+          "maxTokens": 384000,
+          "cost": {
+            "input": 0.3,
+            "output": 1.2,
+            "cacheRead": 0.006,
+            "cacheWrite": 0
+          },
+          "thinkingLevelMap": {
+            "minimal": null,
+            "low": "low",
+            "medium": null,
+            "high": "high",
+            "max": "max"
+          },
+          "compat": {
+            "thinkingFormat": "deepseek",
+            "maxTokensField": "max_tokens",
+            "requiresReasoningContentOnAssistantMessages": true,
+            "supportsStore": false,
+            "supportsDeveloperRole": false
+          }
+        }
+      ],
+      "modelOverrides": {
+        "deepseek-flash": {
+          "name": "DeepSeek V4.1 Flash",
+          "reasoning": true,
+          "input": ["text", "image"],
+          "contextWindow": 1000000,
+          "maxTokens": 384000,
+          "cost": {
+            "input": 0.3,
+            "output": 1.2,
+            "cacheRead": 0.006,
+            "cacheWrite": 0
+          },
+          "thinkingLevelMap": {
+            "minimal": null,
+            "low": "low",
+            "medium": null,
+            "high": "high",
+            "max": "max"
+          },
+          "compat": {
+            "thinkingFormat": "deepseek",
+            "maxTokensField": "max_tokens",
+            "requiresReasoningContentOnAssistantMessages": true,
+            "supportsStore": false,
+            "supportsDeveloperRole": false
+          }
+        },
+        "deepseek-v4-flash": {
+          "name": "DeepSeek V4.1 Flash (retired id, routed to V4.1 Flash)",
+          "reasoning": true,
+          "input": ["text", "image"],
+          "contextWindow": 1000000,
+          "maxTokens": 384000,
+          "cost": {
+            "input": 0.3,
+            "output": 1.2,
+            "cacheRead": 0.006,
+            "cacheWrite": 0
+          },
+          "thinkingLevelMap": {
+            "minimal": null,
+            "low": "low",
+            "medium": null,
+            "high": "high",
+            "max": "max"
+          },
+          "compat": {
+            "thinkingFormat": "deepseek",
+            "maxTokensField": "max_tokens",
+            "requiresReasoningContentOnAssistantMessages": true,
+            "supportsStore": false,
+            "supportsDeveloperRole": false
+          }
+        }
+      }
+    }
+  }
+}
