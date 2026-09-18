@@ -50,7 +50,7 @@ After you've seen the plan, I check: does this plan hit any of these complexity 
 - **Touches authentication, payments, or data integrity**
 - **Has unresolved Open questions** in PLAN.md
 
-**If any trigger is hit:** I invoke `/skill:grill` automatically to walk through design assumptions and scope before locking in the plan. This catches hidden assumptions and scope drift early.
+**If any trigger is hit:** tell the user to run `/skill:grill` and stop before locking in the plan — I cannot invoke it myself. Slash commands (`/skill:name`) are expanded only from *user* input, so writing the command as a model is a no-op; the user must run it. This catches hidden assumptions and scope drift early.
 
 **If plan is trivial** (single-file, mechanical, scoped): I skip grill and proceed directly to asking for your approval.
 
