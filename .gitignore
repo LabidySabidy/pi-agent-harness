@@ -28,7 +28,9 @@ test-results/
 agent/LESSONS.md
 agent/lesson-stats.json
 agent/AGENTS.md
-weekly-report/
+# NOTE: weekly-report/ IS shipped — its source is absorbed into this repo so a fresh
+# clone gets the cost model. It has its own .gitignore (node_modules, .secrets.json,
+# reports/, history.json, run logs, launchers) and carries no personal data.
 
 # Generated state / local secrets
 agent/models-store.json
