@@ -3,5 +3,13 @@
   "defaultProvider": "deepseek",
   "defaultModel": "deepseek-flash",
   "defaultThinkingLevel": "high",
-  "theme": "dark"
+  "theme": "dark",
+  "compaction": {
+    "enabled": true,
+    "reserveTokens": 400000,
+    "keepRecentTokens": 20000
+  },
+  "packages": [
+    "npm:pi-web-access"
+  ]
 }
