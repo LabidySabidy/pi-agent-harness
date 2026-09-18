@@ -108,28 +108,66 @@ function findTests(dir) {
 
 const extensionsDir = join(ROOT, "agent", "extensions");
 
-// pi auto-discovers `~/.pi/agent/extensions/*.ts` as GLOBAL extensions and refuses to start on any
-// file that exports no factory — in every project, not just this one. A test file is only the most
-// likely way to hit it, so the check is on the MECHANISM: any direct *.ts here that exports nothing.
-// Asked at the desk because the symptom appears in the consumer, layers away from the cause;
-// observed live on 2026-09-13 and recorded as GL-027.
+/**
+ * Does this source export a DEFAULT that could be a factory?
+ *
+ * pi requires `export default <function>`. The previous check accepted any
+ * `export` at all, so `export const helper = 1` passed while pi refused to start
+ * — the guard was green on the exact file shape that broke the loader. Observed
+ * live on 2026-09-18: a direct `__probeA.ts` containing only `export const y = 2`
+ * ran the guard at exit 0 and made `pi -p` fail with
+ * `Extension does not export a valid factory function`.
+ */
+function exportsDefault(source) {
+  return /^\s*export\s+default\b/m.test(source);
+}
+
+// pi auto-discovers extension entry points and refuses to start on any that does not
+// export a default factory — in every project, not just this one. Two shapes reach the
+// loader: a direct `extensions/*.ts` file, and `extensions/<dir>/index.ts`. Both are
+// checked, because a guard that covers only the shape that broke last time is the
+// failure mode GL-027 already recorded.
 for (const entry of readdirSync(extensionsDir, { withFileTypes: true })) {
-  if (!entry.isFile() || !entry.name.endsWith(".ts")) continue;
-  const rel = `agent/extensions/${entry.name}`;
-  const source = readFileSync(join(extensionsDir, entry.name), "utf8");
-  // `export` anywhere includes `export default`, `export const`, and `export { … }`.
-  const exportsSomething = /^\s*export\b/m.test(source);
-  if (entry.name.endsWith(".test.ts")) {
-    problems.push(
-      `FATAL PLACEMENT ${rel} — pi auto-discovers direct *.ts files here as global extensions, so ` +
-        `this file breaks the startup of every pi session (GL-027). Move it to tests/.`,
-    );
-  } else if (!exportsSomething) {
-    problems.push(
-      `FATAL PLACEMENT ${rel} — it exports nothing, and pi loads EVERY direct *.ts here as a global ` +
-        `extension. A file with no factory makes pi refuse to start in every project (GL-027). ` +
-        `Move it under a subdirectory with an index.ts entry point, or delete it.`,
-    );
+  if (entry.isFile() && entry.name.endsWith(".ts")) {
+    const rel = `agent/extensions/${entry.name}`;
+    const source = readFileSync(join(extensionsDir, entry.name), "utf8");
+    if (entry.name.endsWith(".test.ts")) {
+      problems.push(
+        `FATAL PLACEMENT ${rel} — pi auto-discovers direct *.ts files here as global extensions, so ` +
+          `this file breaks the startup of every pi session (GL-027). Move it to tests/.`,
+      );
+    } else if (!exportsDefault(source)) {
+      problems.push(
+        `FATAL PLACEMENT ${rel} — pi loads EVERY direct *.ts here as a global extension and ` +
+          `requires \`export default\` to be a function. A file without one makes pi refuse to ` +
+          `start in every project (GL-027). Found no \`export default\`.`,
+      );
+    }
+    continue;
+  }
+
+  // Subdirectories are loaded only via their index entry point (see
+  // dist/core/extensions/loader.js resolveEntryPoints). The same factory requirement
+  // applies, so a factory-less index.ts here breaks startup exactly as a direct file does.
+  if (!entry.isDirectory()) continue;
+  for (const indexName of ["index.ts", "index.js"]) {
+    const indexPath = join(extensionsDir, entry.name, indexName);
+    if (!existsSync(indexPath)) continue;
+    const rel = `agent/extensions/${entry.name}/${indexName}`;
+    let source;
+    try {
+      source = readFileSync(indexPath, "utf8");
+    } catch {
+      continue;
+    }
+    // A .js index cannot declare a TS type, so the same default-export test applies.
+    if (!exportsDefault(source)) {
+      problems.push(
+        `FATAL PLACEMENT ${rel} — pi loads this as an extension entry point and requires ` +
+          `\`export default\` to be a function. Without one it refuses to start in every ` +
+          `project (GL-027). Found no \`export default\`.`,
+      );
+    }
   }
 }
 
