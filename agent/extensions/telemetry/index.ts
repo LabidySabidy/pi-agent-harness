@@ -25,9 +25,10 @@
  */
 
 import type { ExtensionAPI, AgentEndEvent, TurnEndEvent } from "@earendil-works/pi-coding-agent";
-import { promises as fs } from "node:fs";
-import { join, resolve } from "node:path";
+import { promises as fs, existsSync, readFileSync } from "node:fs";
+import { join, resolve, dirname } from "node:path";
 import * as os from "node:os";
+import { fileURLToPath } from "node:url";
 import { bucketMessages, charsToTokens, BUCKET_KEYS, type TokenBuckets } from "./buckets.js";
 
 // ---------------------------------------------------------------------------
@@ -83,6 +84,41 @@ interface BootRecord {
   "harness.git_sha": string;
   "harness.estimator": string;
   "harness.boot.payload": Record<string, number>;
+  /** Which model record actually served this session, and where it came from. */
+  "harness.model"?: HarnessModelInfo;
+  /** Which pi build is running, and through which surface. */
+  "harness.pi"?: HarnessPiInfo;
+}
+
+/**
+ * Identity of the resolved model record.
+ *
+ * WHY: a session can silently resolve to a different catalog record than intended —
+ * a stale bundled entry, a retired id, or a different price schedule. Nothing else
+ * in telemetry records which record served a run, so a drift is invisible until the
+ * cost is wrong. `source` and `pinned` are the fields that make a failed pin loud.
+ */
+export interface HarnessModelInfo {
+  id: string;
+  name?: string;
+  provider?: string;
+  /** `image` in this list means the model accepts images; its absence means images are dropped. */
+  input?: string[];
+  contextWindow?: number;
+  cost?: { input?: number; output?: number; cacheRead?: number; cacheWrite?: number };
+  /** Where the record came from: a local models.json override, the remote/cached
+   *  catalog, or the version-bundled catalog. `bundled` with an unexpected id is
+   *  the signature of the silent-drift failure. */
+  source: "override" | "cache" | "bundled" | "unknown";
+  /** Timestamp of the cached catalog body that supplied it, when known. */
+  catalogLastModified?: string;
+  /** True when a local models.json supplies an override for this model id. */
+  pinned: boolean;
+}
+
+export interface HarnessPiInfo {
+  version: string;
+  surface: "cli" | "pi-web" | "unknown";
 }
 
 interface RunningRecord {
@@ -101,7 +137,12 @@ interface RunningRecord {
   "harness.lesson_hits": string[];
   "harness.skills": string[];
   "harness.gates": string; // "pass" | "fail" | "unknown"
+  /** Monotonic count of model exchanges (turn_end) in the session. */
   turn_index: number;
+  /** Monotonic count of user prompts in the session. */
+  user_turns: number;
+  /** Off-peak-adjusted spend estimate (USD) at catalog rates. */
+  cost_offpeak_adjusted?: number;
 }
 
 interface SessionEndRecord {
@@ -118,6 +159,10 @@ interface SessionEndRecord {
   "harness.skills": string[];
   "harness.gates": string;
   turn_count: number;
+  /** Count of user prompts, distinct from the model-exchange turn count. */
+  user_turns: number;
+  /** Off-peak-adjusted spend estimate (USD) at catalog rates. */
+  cost_offpeak_adjusted: number;
 }
 
 interface TelemetryState {
@@ -137,6 +182,12 @@ interface TelemetryState {
     gates: string;
     models: string[];
     turnIndex: number;
+    /** Count of user prompts (message_start with role === "user"), monotonic. */
+    userTurns: number;
+    /** Cost with the DeepSeek off-peak discount applied; the spend estimate. */
+    adjustedCost: number;
+    /** True once the cost warning has fired, so it fires at most once per session. */
+    warnedCost: boolean;
   };
 }
 
@@ -173,12 +224,12 @@ let lastProviderUsage: { input: number; output: number; cacheRead: number; cache
 /** Extract LLM-facing messages from the current session branch (for /tokens). */
 function sessionMessages(ctx: any): unknown[] {
   try {
-    const entries = ctx?.sessionManager?.buildContextEntries?.() ?? [];
-    const msgs: unknown[] = [];
-    for (const e of entries as Array<{ type?: string; message?: unknown }>) {
-      if (e?.type === "message" && e?.message) msgs.push(e.message);
-    }
-    return msgs;
+    // `buildContextEntries` does not exist in any released pi (verified against
+    // 0.80.3 and 0.84.3); optional chaining made it return [] silently, so /tokens
+    // reported all-zero layers before the first request of a session. The real
+    // method is `buildSessionContext()`, whose result carries `.messages`.
+    const built = ctx?.sessionManager?.buildSessionContext?.();
+    const entries = built?.messages ?? [];    return Array.isArray(entries) ? entries : [];
   } catch {
     return [];
   }
@@ -309,6 +360,10 @@ async function recoverJournal(
       "harness.skills": record["harness.skills"] ?? [],
       "harness.gates": record["harness.gates"] ?? "unknown",
       turn_count: record.turn_index ?? 0,
+      // Carry the new fields through recovery so a recovered session is not the one
+      // place where user_turns / adjusted cost silently read as zero.
+      user_turns: record.user_turns ?? 0,
+      cost_offpeak_adjusted: record.cost_offpeak_adjusted ?? 0,
     };
 
     await appendLine(telemetryPath, JSON.stringify(endRecord));
@@ -358,6 +413,9 @@ function freshCumulative(): TelemetryState["cumulative"] {
     gates: "unknown",
     models: [],
     turnIndex: 0,
+    userTurns: 0,
+    adjustedCost: 0,
+    warnedCost: false,
   };
 }
 
@@ -500,6 +558,151 @@ async function updateLessonStats(
   }
 }
 
+/**
+ * Describe the resolved model record and where it came from.
+ *
+ * `ctx.model` is the model the session runtime actually bound, so its identity is
+ * authoritative. `source`/`pinned` are read from the two local files that can
+ * change a record: `models.json` (a local override) and `models-store.json` (the
+ * cached remote catalog). A record present in neither came from the bundled set.
+ */
+function describeModel(ctx: any): HarnessModelInfo | undefined {
+  const model = ctx?.model ?? ctx?.modelRegistry?.getModel?.();
+  if (!model) return undefined;
+
+  const id = String(model.id ?? "unknown");
+  const provider = model.provider ? String(model.provider) : undefined;
+
+  let pinned = false;
+  let inCache = false;
+  let catalogLastModified: string | undefined;
+
+  try {
+    const modelsConfigPath = join(GLOBAL_AGENT_DIR, "models.json");
+    if (existsSync(modelsConfigPath)) {
+      const cfg = JSON.parse(readFileSync(modelsConfigPath, "utf8"));
+      const prov = provider ? cfg?.providers?.[provider] : undefined;
+      if (prov?.modelOverrides?.[id] || prov?.models?.some?.((m: any) => m?.id === id)) {
+        pinned = true;
+      }
+    }
+    const storePath = join(GLOBAL_AGENT_DIR, "models-store.json");
+    if (existsSync(storePath)) {
+      const store = JSON.parse(readFileSync(storePath, "utf8"));
+      const entry = provider ? store?.[provider] : undefined;
+      if (entry?.models?.some?.((m: any) => m?.id === id)) {
+        inCache = true;
+        if (typeof entry.lastModified === "number") {
+          catalogLastModified = new Date(entry.lastModified).toISOString();
+        }
+      }
+    }
+  } catch {
+    // Identity still gets recorded even when the local files cannot be read.
+  }
+
+  return {
+    id,
+    ...(model.name ? { name: String(model.name) } : {}),
+    ...(provider ? { provider } : {}),
+    ...(Array.isArray(model.input) ? { input: model.input.map(String) } : {}),
+    ...(typeof model.contextWindow === "number" ? { contextWindow: model.contextWindow } : {}),
+    ...(model.cost ? { cost: model.cost } : {}),
+    source: pinned ? "override" : inCache ? "cache" : "bundled",
+    ...(catalogLastModified ? { catalogLastModified } : {}),
+    pinned,
+  };
+}
+
+/**
+ * Identify the pi build and surface.
+ *
+ * There is no version getter on the extension API, and `PI_MODEL`/`PI_PROVIDER`
+ * are injected only into bash CHILD environments (core/tools/bash.js), so they are
+ * absent from the pi process and cannot be read here. The version is therefore read
+ * from the installed package's own manifest, and the surface from markers the host
+ * sets: pi-web is a Next.js server, so `NEXT_RUNTIME` is present there and not in
+ * the CLI. Anything unrecognised is recorded as `unknown` rather than guessed.
+ */
+function describePi(): HarnessPiInfo {
+  let version = "unknown";
+
+  const readVersionFrom = (start: string): string | undefined => {
+    let dir = start;
+    for (let i = 0; i < 12; i++) {
+      const manifest = join(dir, "package.json");
+      try {
+        if (existsSync(manifest)) {
+          const pkg = JSON.parse(readFileSync(manifest, "utf8"));
+          if (pkg?.name === "@earendil-works/pi-coding-agent" && pkg.version) {
+            return String(pkg.version);
+          }
+        }
+      } catch {
+        // keep walking
+      }
+      const parent = resolve(dir, "..");
+      if (parent === dir) break;
+      dir = parent;
+    }
+    return undefined;
+  };
+
+  // The pi package is NOT an ancestor of the extension (the extension lives in
+  // ~/.pi/agent/extensions while pi is installed elsewhere), so an ancestor walk
+  // from this file never reaches it. Resolve the module instead, then read the
+  // manifest next to it. GL-017: resolve the package root, never a subpath.
+  try {
+    const resolveFn = (import.meta as unknown as { resolve?: (s: string) => string }).resolve;
+    if (typeof resolveFn === "function") {
+      const url = resolveFn("@earendil-works/pi-coding-agent");
+      if (url?.startsWith("file:")) {
+        version = readVersionFrom(dirname(fileURLToPath(url))) ?? version;
+      }
+    }
+  } catch {
+    // fall through to the argv-based probe
+  }
+
+  // CLI fallback: `node <pkg>/dist/cli.js` — walk up from the entry point.
+  if (version === "unknown") {
+    const entry = process.argv?.[1];
+    if (entry) version = readVersionFrom(dirname(resolve(entry))) ?? version;
+  }
+
+  if (version === "unknown") {
+    const pkgDir = process.env.PI_PACKAGE_DIR;
+    if (pkgDir) version = readVersionFrom(resolve(pkgDir)) ?? version;
+  }
+
+  const surface: HarnessPiInfo["surface"] =
+    process.env.NEXT_RUNTIME || process.env.PI_WEB_SURFACE
+      ? "pi-web"
+      : process.env.PI_CODING_AGENT
+        ? "cli"
+        : "unknown";
+
+  return { version, surface };
+}
+
+/**
+ * DeepSeek peak / off-peak billing (see weekly-report/pricing.ts for the full rationale).
+ * The catalog `cost` is the PEAK rate; off-peak is exactly half, applied to all hours
+ * outside Mon-Fri 01:00-04:00 and 06:00-10:00 UTC.
+ */
+function offPeakMultiplier(ts: string | number | Date): number {
+  const d = ts instanceof Date ? ts : new Date(ts);
+  if (Number.isNaN(d.getTime())) return 1;
+  const dow = d.getUTCDay();
+  if (dow === 0 || dow === 6) return 0.5;
+  const h = d.getUTCHours();
+  const peak = (h >= 1 && h < 4) || (h >= 6 && h < 10);
+  return peak ? 1 : 0.5;
+}
+
+/** Warn once per session when the off-peak-adjusted cost estimate crosses this. */
+const SESSION_COST_WARN_USD = 0.5;
+
 // ─────────────────────────────────────────────────────────────────────────
 // Error logging
 // ─────────────────────────────────────────────────────────────────────────
@@ -631,6 +834,8 @@ export default function telemetry(pi: ExtensionAPI) {
         "harness.git_sha": harnessGitSha,
         "harness.estimator": ESTIMATOR,
         "harness.boot.payload": bootPayload,
+        "harness.model": describeModel(ctx),
+        "harness.pi": describePi(),
       };
 
       await appendLine(telemetryPath, JSON.stringify(bootRecord));
@@ -702,7 +907,21 @@ export default function telemetry(pi: ExtensionAPI) {
       for (const skill of extractSkills(rawText)) skills.add(skill);
 
       // ── Turn index ─────────────────────────────────────────────────
-      const turnIndex = (event.turnIndex ?? state.cumulative.turnIndex) + 1;
+      // MONOTONIC per session. Do NOT derive this from `event.turnIndex`: pi resets
+      // its counter to 0 on every `agent_start` (agent-session.js _emitExtensionEvent),
+      // and `agent_start` fires again for retries, auto-compaction, and queued
+      // continuations. Using the event's index made a 49-turn session record as 2.
+      // This counts MODEL EXCHANGES; `user_turns` counts the human's prompts.
+      const turnIndex = state.cumulative.turnIndex + 1;
+
+      // ── Off-peak-adjusted cost estimate (B5/B6) ────────────────────
+      // Increment, not the cumulative total: only the increment has a single
+      // timestamp, and peak/off-peak depends on the time of day.
+      const priorCost = state.cumulative.cost || 0;
+      const turnCost = Math.max(0, cumulativeCost - priorCost);
+      const adjustedCost =
+        (state.cumulative.adjustedCost || 0) + turnCost * offPeakMultiplier(isoNow());
+      let warnedCostNow = state.cumulative.warnedCost === true;
 
       // ── Write running record ───────────────────────────────────────
       const record: RunningRecord = {
@@ -722,6 +941,9 @@ export default function telemetry(pi: ExtensionAPI) {
         "harness.skills": [...skills].sort(),
         "harness.gates": "unknown",
         turn_index: turnIndex,
+        user_turns: state.cumulative.userTurns,
+        // Off-peak-adjusted spend estimate for this session so far.
+        cost_offpeak_adjusted: Number(adjustedCost.toFixed(6)),
       };
 
       // Update state
@@ -736,11 +958,34 @@ export default function telemetry(pi: ExtensionAPI) {
         gates: "unknown",
         models: [...models],
         turnIndex,
+        userTurns: state.cumulative.userTurns,
+        adjustedCost,
+        warnedCost: warnedCostNow,
       };
       await writeState(statePath, state);
 
       // Append running record
       await appendLine(telemetryPath, JSON.stringify(record));
+
+      // ── B6: one quiet cost warning per session ─────────────────────
+      // Keyed to spend, not to a context percentage: compaction now fires at 60% of the
+      // window, so a 70% context warning would rarely be reachable — and for someone who
+      // does not read /tokens, dollars are the number that matters.
+      if (!warnedCostNow && adjustedCost >= SESSION_COST_WARN_USD) {
+        warnedCostNow = true;
+        state.cumulative = { ...state.cumulative, warnedCost: true };
+        await writeState(statePath, state);
+        try {
+          ctx?.ui?.notify?.(
+            `Session cost estimate passed $${SESSION_COST_WARN_USD.toFixed(2)} ` +
+              `(now ~$${adjustedCost.toFixed(2)} across ${turnIndex} model exchanges). ` +
+              `Off-peak-adjusted at catalog rates; the provider's usage page is authoritative.`,
+            "warning",
+          );
+        } catch {
+          // No UI in non-interactive modes; the record above still carries the number.
+        }
+      }
 
       // Update lesson stats (per-turn delta only)
       await updateLessonStats(turnCitations, projectDir).catch(() => {});
@@ -841,6 +1086,13 @@ export default function telemetry(pi: ExtensionAPI) {
         "harness.skills": [...skills].sort(),
         "harness.gates": "unknown",
         turn_index: newTurn,
+        user_turns: state.cumulative.userTurns,
+        cost_offpeak_adjusted: Number(
+          (
+            (state.cumulative.adjustedCost || 0) +
+            Math.max(0, cumulativeCost - (state.cumulative.cost || 0)) * offPeakMultiplier(isoNow())
+          ).toFixed(6),
+        ),
       };
 
       state.cumulative = {
@@ -854,6 +1106,11 @@ export default function telemetry(pi: ExtensionAPI) {
         gates: "unknown",
         models: [...models],
         turnIndex: newTurn,
+        userTurns: state.cumulative.userTurns,
+        adjustedCost:
+          (state.cumulative.adjustedCost || 0) +
+          Math.max(0, cumulativeCost - (state.cumulative.cost || 0)) * offPeakMultiplier(isoNow()),
+        warnedCost: state.cumulative.warnedCost === true,
       };
       await writeState(statePath, state);
       await appendLine(telemetryPath, JSON.stringify(record));
@@ -890,9 +1147,29 @@ export default function telemetry(pi: ExtensionAPI) {
         "harness.skills": state.cumulative.skills,
         "harness.gates": state.cumulative.gates,
         turn_count: state.cumulative.turnIndex,
+        user_turns: state.cumulative.userTurns,
+        cost_offpeak_adjusted: Number((state.cumulative.adjustedCost || 0).toFixed(6)),
       };
 
       await appendLine(telemetryPath, JSON.stringify(endRecord));
+
+      // ── B5: one-line session summary ───────────────────────────────
+      // Cheap and quiet: the same numbers already in the record above, surfaced once
+      // for someone who will never run /tokens or read the weekly report.
+      try {
+        if (ctx?.ui?.notify) {
+          const cost = state.cumulative.adjustedCost || 0;
+          const exchanges = state.cumulative.turnIndex;
+          const prompts = state.cumulative.userTurns;
+          ctx.ui.notify(
+            `Session: ~$${cost.toFixed(2)} est. (off-peak adjusted) · ` +
+              `${exchanges} model exchanges · ${prompts} prompts`,
+            "info",
+          );
+        }
+      } catch {
+        // Non-interactive mode has no UI; the session_end record is the durable copy.
+      }
     } catch (err) {
       if (projectDir) {
         await logError(
@@ -911,6 +1188,21 @@ export default function telemetry(pi: ExtensionAPI) {
       lastBuckets = bucketMessages(event?.messages ?? []);
     } catch {
       // fail-open
+    }
+  });
+
+  // ── message_start ──────────────────────────────────────────────────
+  // Count USER prompts. Distinct from `turn_index`, which counts model
+  // exchanges: one user prompt spans several turns whenever tools run, and pi
+  // re-enters its loop (retries, auto-compaction, queued continuations) without
+  // a new user message. GL-018: never derive an exchange count from turn events.
+  pi.on("message_start", (event: any) => {
+    try {
+      if (!state) return;
+      if (event?.message?.role !== "user") return;
+      state.cumulative = { ...state.cumulative, userTurns: state.cumulative.userTurns + 1 };
+    } catch {
+      // fail-open: a miscount must never break a turn
     }
   });
 
