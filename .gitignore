@@ -25,9 +25,12 @@ test-results/
 .agent/
 
 # Personal memory (not shipped)
-agent/LESSONS.md
 agent/lesson-stats.json
 agent/AGENTS.md
+# NOTE: agent/LESSONS.md IS shipped. It was excluded as "personal memory", but the README
+# cites it by ID ("Recorded as GL-028 in agent/LESSONS.md"), so excluding it made those
+# references dangle. It holds no secrets, usernames, or absolute paths — reviewed before
+# shipping.
 # NOTE: weekly-report/ IS shipped — its source is absorbed into this repo so a fresh
 # clone gets the cost model. It has its own .gitignore (node_modules, .secrets.json,
 # reports/, history.json, run logs, launchers) and carries no personal data.
