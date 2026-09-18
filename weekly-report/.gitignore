@@ -1,0 +1,30 @@
+node_modules/
+dist/
+.secrets.json
+reports/
+history.json
+run.log
+run-report.bat
+# Launcher scripts embed absolute paths containing the OS username (GL-019).
+run-report-hidden.vbs
+run-report.ps1
+
+
+# Agent / planning docs (local only)
+.agent/
+.claude/
+.cursor/
+.taskmaster/
+openspec/
+PLAN.md
+TASKS.md
+PROGRESS.md
+LESSONS.md
+LANGUAGE.md
+VISION.md
+DECISIONS.md
+AGENTS.md
+STANDARDS.md
+CLAUDE.md
+PROMPT_FOR_PI.md
+DESIGN_PROMPT.md

@@ -1,0 +1,15 @@
+{
+  "name": "weekly-report",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Weekly harness digest — tokens, estimated spend, skill usage → Discord",
+  "scripts": {
+    "run": "npx tsx report.ts",
+    "dry": "npx tsx report.ts --dry",
+    "typecheck": "npx tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.8.0"
+  }
+}
