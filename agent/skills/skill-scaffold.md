@@ -1,6 +1,6 @@
 ---
 name: scaffold
-description: Bootstrap a brand-new code project from scratch — discovery flow, VISION/PLAN/TASKS files, GitHub repo, deploy. Load only when there is no existing codebase and the user wants a new app. Not for features in an existing project (plan-then-implement) or a learning curriculum (scaffold-learning).
+description: Bootstrap a brand-new code project from scratch — discovery flow, VISION/PLAN/TASKS files, GitHub repo, deploy. Load only when there is no existing codebase and the user wants a new app. Not for features in an existing project (plan-then-implement) or a learning curriculum.
 ---
 
 # Skill: Scaffold (New Project Bootstrap + Auto-Deploy)
