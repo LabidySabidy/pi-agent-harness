@@ -23,6 +23,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { promises as fs } from "node:fs";
 import { join, dirname } from "node:path";
+import { skipProjectMemory } from "../home-guard/home-guard.ts";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -100,6 +101,12 @@ export default function extractPatterns(pi: ExtensionAPI) {
     try {
       const entries = ctx.sessionManager.getEntries() as ReadonlyArray<SessionEntry>;
       if (!entries || entries.length < MIN_SESSION_ENTRIES) return;
+
+      // A session started AT the home directory is not a project: it has no LESSONS.md to read and
+      // no .agent/ to own. Writing there produced a stray .agent/ in the home root; see
+      // ../home-guard/home-guard.ts. Guarded here so BOTH hooks (agent_end and session_shutdown)
+      // are covered by the one check.
+      if (skipProjectMemory(ctx.cwd)) return;
 
       // Read incremental state
       const statePath = join(ctx.cwd, STATE_FILENAME);

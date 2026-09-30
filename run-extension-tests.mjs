@@ -48,6 +48,7 @@ const DECLARED = [
   // The learning and passivity extensions moved to socrates-web, which ships and loads its own copies
   // (see the commit that removed them). Their tests went with them, and that repo's suite runs them:
   //   node --test session.test.ts   (isolation) and the shipped copies are asserted by preflight.
+  { file: "agent/extensions/home-guard/home-guard.test.ts", min: 10 },
   { file: "agent/extensions/reasoning-level/level.test.ts", min: 23 },
   { file: "agent/extensions/reasoning-level/wiring.test.ts", min: 11 },
   { file: "run-extension-tests.test.ts", min: 3 },

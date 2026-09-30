@@ -30,6 +30,7 @@ import { join, resolve, dirname } from "node:path";
 import * as os from "node:os";
 import { fileURLToPath } from "node:url";
 import { bucketMessages, charsToTokens, BUCKET_KEYS, type TokenBuckets } from "./buckets.js";
+import { skipProjectMemory } from "../home-guard/home-guard.ts";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -740,6 +741,24 @@ async function getTelemetryTarget(cwd: string): Promise<{
     };
   }
 
+  // A session started AT the home directory is not a project. This must be checked BEFORE the
+  // project heuristics below, because the home directory always looks like a project: it has its
+  // own ~/.pi and ~/.agent, so "has memory files" is trivially true and can never reject it.
+  // Writing here produced a stray .agent/ in the home root. See ../home-guard/home-guard.ts.
+  //
+  // NOTE: this was originally placed only on the project branch, and the guard leaked — the
+  // session_start recovery path wrote a session_end record anyway. Two things were wrong: the
+  // harness early-return above hardcodes shouldWrite, and recoverJournal ran before the
+  // shouldWrite check. Both are fixed; the guard now sits on the single funnel.
+  if (skipProjectMemory(cwd)) {
+    return {
+      telemetryPath: join(cwd, TELEMETRY_FILENAME),
+      statePath: join(cwd, STATE_FILENAME),
+      projectKey: normalized,
+      shouldWrite: false,
+    };
+  }
+
   // Project sessions: only create .agent/ if project already has one
   // or has memory files (VISION.md, LESSONS.md, PROGRESS.md, PLAN.md)
   const agentDir = join(cwd, ".agent");
@@ -788,10 +807,11 @@ export default function telemetry(pi: ExtensionAPI) {
       state = await readState(statePath);
 
       // Journal recovery: finalize previous session if needed.
-      // Guard on currentSessionId (which IS the previous session from
-      // the perspective of this boot), not previousSessionId (which the
-      // first session always writes as null).
-      if (state?.currentSessionId && state.projectKey) {
+      //
+      // MUST come after the write gate. It appends a session_end record using this target's
+      // telemetryPath, so running it before the gate let a session that had opted out of writing
+      // still write one. That is exactly how the home-directory guard leaked on first attempt.
+      if (shouldWrite && state?.currentSessionId && state.projectKey) {
         await recoverJournal(
           telemetryPath,
           statePath,
@@ -811,7 +831,11 @@ export default function telemetry(pi: ExtensionAPI) {
         projectKey,
         cumulative: freshCumulative(),
       };
-      await writeState(statePath, state);
+      // Gated on shouldWrite: writeState() runs ensureDir(), so writing here SCAFFOLDS `.agent/`
+      // into a directory that opted out — including the home directory, where the guard exists
+      // precisely to keep it from appearing. The records were already gated below; this file was
+      // not, which is why the home-directory guard still touched disk on its second attempt.
+      if (shouldWrite) await writeState(statePath, state);
 
       // Reset token accounting for the new session.
       lastBuckets = null;

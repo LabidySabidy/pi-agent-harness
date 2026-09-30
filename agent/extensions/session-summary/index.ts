@@ -22,6 +22,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
+import { skipProjectMemory } from "../home-guard/home-guard.ts";
 
 const PROGRESS_FILENAME = "PROGRESS.md";
 const MAX_SUMMARY_CHARS = 500;
@@ -33,6 +34,9 @@ let sessionStartIso: string | null = null;
 export default function sessionSummary(pi: ExtensionAPI) {
   pi.on("session_start", async (_event, ctx) => {
     sessionStartIso = new Date().toISOString();
+    // A session started AT the home directory is not a project. Writing PROGRESS.md there produced
+    // stray memory files in the home root; see ../home-guard/home-guard.ts.
+    if (skipProjectMemory(ctx.cwd)) return;
     try {
       await finalizeStaleEntries(join(ctx.cwd, PROGRESS_FILENAME));
     } catch (err) {
@@ -88,6 +92,7 @@ async function updateRollingEntry(
   if (!hasRecap && summary.length < 200) return;
 
   const progressPath = join(ctx.cwd, PROGRESS_FILENAME);
+  if (skipProjectMemory(ctx.cwd)) return;
   const exists = await fileExists(progressPath);
   const current = exists
     ? await fs.readFile(progressPath, "utf8")
