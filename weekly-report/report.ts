@@ -257,7 +257,30 @@ async function main(): Promise<void> {
   fs.writeFileSync(reportFile, markdown, "utf-8");
   console.log(`[weekly-report] Report written: ${reportFile}`);
 
-  // 5. Persist history
+  // 5. Deliver.
+  //
+  // ORDER IS THE POINT, and it was wrong here: the dry-run check used to sit AFTER the history
+  // write, so `--dry` persisted a history row, and the history write used to sit BEFORE the POST,
+  // so a failed post armed the 6-day guard and silenced the report for six days. Both were
+  // demonstrated before this change: `report.ts --dry` wrote a row, and a stubbed failing POST
+  // left one behind. The file write stays first because the report is a useful artifact even when
+  // delivery fails.
+  if (dryRun) {
+    console.log("\n[weekly-report] DRY RUN — embed that WOULD be sent:\n");
+    console.log(JSON.stringify(embed, null, 2));
+    console.log("\n[weekly-report] Dry run complete. No POST sent.");
+    return;
+  }
+
+  const delivery = await deliverEmbed(embed);
+  if (!delivery.ok) {
+    // The report file is on disk; history is deliberately NOT recorded. A transient Discord outage
+    // must not arm the 6-day guard, because that turns one failed POST into a silent week.
+    console.error("[weekly-report] Local report written. Exiting with error.");
+    process.exit(1);
+  }
+
+  // 6. Persist history — only after a successful post, so it arms the guard exactly when it should.
   const skillUsageMap: Record<string, number> = {};
   for (const s of metrics.skill_usage) {
     skillUsageMap[s.skill] = s.sessions;
@@ -275,20 +298,6 @@ async function main(): Promise<void> {
     skills_used: skillUsageMap,
   });
   console.log("[weekly-report] History updated");
-
-  // 6. Deliver
-  if (dryRun) {
-    console.log("\n[weekly-report] DRY RUN — embed that WOULD be sent:\n");
-    console.log(JSON.stringify(embed, null, 2));
-    console.log("\n[weekly-report] Dry run complete. No POST sent.");
-    return;
-  }
-
-  const delivery = await deliverEmbed(embed);
-  if (!delivery.ok) {
-    console.error("[weekly-report] Local report written. Exiting with error.");
-    process.exit(1);
-  }
 }
 
 main().catch((err) => {
