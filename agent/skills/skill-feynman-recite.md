@@ -1,6 +1,6 @@
 ---
 name: feynman-recite
-description: Active-recall check: the user explains one concept from memory in plain English to earn a proficiency badge. Load when asked to recite, explain a concept, or check understanding. Not for the model cross-examining for misconceptions (grill-misconception).
+description: "Active-recall check: the user explains one concept from memory in plain English to earn a proficiency badge. Load when asked to recite, explain a concept, or check understanding. Not for the model cross-examining for misconceptions (grill-misconception)."
 ---
 
 # Skill: Feynman Recite (Recitation Validator)

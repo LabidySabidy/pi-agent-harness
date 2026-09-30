@@ -171,6 +171,169 @@ for (const entry of readdirSync(extensionsDir, { withFileTypes: true })) {
   }
 }
 
+// --- 2b. every skill's frontmatter must be loadable --------------------------
+//
+// WHY THIS EXISTS, with the failure it prevents:
+//
+//   `feynman-recite` was silently invisible for weeks. Its description was an UNQUOTED YAML
+//   scalar containing ": " — `description: Active-recall check: the user explains …` — which YAML
+//   reads as a nested mapping inside a compact mapping and rejects. pi DROPS such a skill, and for
+//   a loose `*.md` (as opposed to a declared `SKILL.md`) it drops it with **no diagnostic at all**:
+//   on 0.84.3 and 0.85.1 the loader reported 10 skills and `diagnostics: []` while 11 files sat on
+//   disk. Only 0.80.3 said anything. So the skill's own README entry and its `total` were both
+//   lies, and nothing failed.
+//
+// This is GL-024's shape (a parser that silently drops turns a formatting variation into a missing
+// feature). A skill that cannot load is a missing feature, so the run refuses.
+//
+// SCOPE, stated honestly: this is a TARGETED detector, not a YAML parser. The harness has no
+// `package.json` and no importable YAML library (verified: `require.resolve('yaml')` and
+// `require.resolve('js-yaml')` both fail from the harness root, and the pi SDK does not resolve
+// either), so a real parser would mean adding a dependency to a repo that deliberately has none.
+// It therefore refuses on the two conditions pi itself drops a loose `*.md` for — a frontmatter
+// PARSE failure and a missing/blank `description` — and, per GL-024, it WARNS on any frontmatter
+// shape it does not recognise rather than quietly accepting it.
+const SKILLS_DIR = join(ROOT, "agent", "skills");
+const skillWarnings = [];
+
+/** Strip a trailing ` # comment` from an unquoted scalar, then trim. */
+function plainValue(raw) {
+  const cut = raw.search(/\s+#/);
+  return (cut >= 0 ? raw.slice(0, cut) : raw).trim();
+}
+
+/**
+ * Return the problem this scalar would cause YAML, or null when it is fine.
+ *
+ * `plain` is the value with a trailing comment already removed. A quoted scalar, a block scalar
+ * (`|`, `>`), or a flow collection (`[`, `{`) is exempt: those are legal carriers of a colon.
+ *
+ * An EMPTY value is deliberately not judged here: `key:` with nothing after it is legal YAML when
+ * an indented block follows (that is how `triggers:` carries its list in skill-browser.md), so
+ * emptiness is decided by the caller, which can look ahead.
+ */
+function scalarProblem(plain) {
+  if (plain === "") return null;
+  const first = plain[0];
+  if (first === '"' || first === "'") {
+    if (plain.length < 2 || plain[plain.length - 1] !== first) {
+      return "unterminated quote — the closing " + first + " is missing";
+    }
+    return null;
+  }
+  if (first === "|" || first === ">" || first === "[" || first === "{" || first === "&" || first === "*") {
+    return null;
+  }
+  // The bug that started this. In a plain scalar, ": " opens a nested mapping, which YAML forbids
+  // inside a compact mapping — and a trailing ":" is the same error at end of line.
+  if (plain.includes(": ") || plain.endsWith(":")) {
+    return (
+      "an unquoted ': ' makes YAML read this as a nested mapping (a colon-space is illegal in a " +
+      "plain scalar). Wrap the whole value in double quotes"
+    );
+  }
+  return null;
+}
+
+/**
+ * Validate one skill file. Returns {file, problems, warnings} — problems refuse the run.
+ *
+ * Deliberately permissive about SHAPE (a value may be quoted, plain, a flow list, or a block
+ * scalar) and strict about the two things that silently lose the skill.
+ */
+function checkSkill(file) {
+  const rel = `agent/skills/${file}`;
+  const problems = [];
+  let source;
+  try {
+    source = readFileSync(join(SKILLS_DIR, file), "utf8");
+  } catch (err) {
+    return { rel, problems: [`unreadable: ${err.message}`] };
+  }
+
+  // Frontmatter must open on line 1 and close on a line that is exactly `---`.
+  const normalized = source.replace(/\r\n/g, "\n");
+  if (!/^---\n/.test(normalized)) {
+    return { rel, problems: ["no frontmatter block — pi needs `---` on line 1 and a closing `---`"] };
+  }
+  const end = normalized.indexOf("\n---", 3);
+  if (end < 0) {
+    return { rel, problems: ["frontmatter block is never closed — pi needs a closing `---` line"] };
+  }
+  const block = normalized.slice(4, end);
+  const lines = block.split("\n");
+
+  const values = new Map();
+  let lastKeyWasBlock = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const lineNo = i + 2; // +1 for the opening `---`, +1 for 1-indexing
+    if (line.trim() === "" || line.trimStart().startsWith("#")) continue;
+
+    // A continuation line of a block scalar (`  text`) — legal, and the established shape for long
+    // descriptions, so it is recognised rather than warned about.
+    if (/^[ \t]+\S/.test(line)) {
+      if (!lastKeyWasBlock) {
+        skillWarnings.push(`${rel}:${lineNo} indented line inside a non-block value — not parsed`);
+      }
+      continue;
+    }
+
+    const m = /^([A-Za-z0-9_-]+):[ \t]*(.*)$/.exec(line);
+    if (!m) {
+      // Not `key: value`, not indented, not a comment. Refusing would be over-strict
+      // (GL-024: warn on unrecognised, never silently accept).
+      skillWarnings.push(`${rel}:${lineNo} unrecognised frontmatter line (not \`key: value\`) — not parsed`);
+      lastKeyWasBlock = false;
+      continue;
+    }
+
+    const [, key, rawRest] = m;
+    const plain = plainValue(rawRest);
+
+    // `key:` with nothing after it is legal when an indented block follows — that is how
+    // `triggers:` carries its list. Only a value-less key with NO indented block under it is a
+    // problem, so look ahead before judging.
+    if (plain === "") {
+      const nextContent = lines.slice(i + 1).find((l) => l.trim() !== "" && !l.trimStart().startsWith("#"));
+      if (nextContent === undefined || !/^[ \t]+\S/.test(nextContent)) {
+        problems.push(`${rel}:${lineNo} \`${key}\` — has no value and no indented block under it`);
+      }
+      lastKeyWasBlock = true; // an indented continuation is expected, not a warning
+      values.set(key, "");
+      continue;
+    }
+
+    lastKeyWasBlock = plain.startsWith("|") || plain.startsWith(">");
+
+    const problem = scalarProblem(plain);
+    if (problem) problems.push(`${rel}:${lineNo} \`${key}\` — ${problem}`);
+    values.set(key, plain);
+  }
+
+  if (!values.has("description")) {
+    problems.push(`${rel} — no \`description:\` key. pi DROPS a skill without one, silently (GL-024).`);
+  } else if (!values.get("description")) {
+    problems.push(`${rel} — \`description:\` is blank. pi DROPS a skill with a blank description, silently.`);
+  }
+
+  return { rel, problems };
+}
+
+if (existsSync(SKILLS_DIR)) {
+  const skillFiles = readdirSync(SKILLS_DIR, { withFileTypes: true })
+    .filter((e) => e.isFile() && e.name.endsWith(".md"))
+    .map((e) => e.name)
+    .sort();
+  let skillCount = 0;
+  for (const file of skillFiles) {
+    skillCount++;
+    for (const p of checkSkill(file).problems) problems.push(p);
+  }
+  console.log(`Skills checked: ${skillCount} file(s) in agent/skills/\n`);
+}
+
 const found = existsSync(extensionsDir) ? findTests(extensionsDir).map((f) => toPosix(relative(ROOT, f))) : [];
 const declaredNames = new Set(declared.map((d) => toPosix(d.file)));
 for (const file of found) {
@@ -250,5 +413,10 @@ if (stale.length > 0) {
       `Not a failure, but raise them so a regression cannot hide under the old number:`,
   );
   for (const s of stale) console.log(`    ${s.file}: ${s.count} tests, floor ${s.min}`);
+}
+if (skillWarnings.length > 0) {
+  console.log(`\n  ${skillWarnings.length} frontmatter shape(s) were not recognised by the skill guard. ` +
+    `Not a failure, but the guard did not validate them — check them by hand:`);
+  for (const w of skillWarnings) console.log(`    WARN  ${w}`);
 }
 console.log(`  every declared file ran, and every count is attributable above.`);
