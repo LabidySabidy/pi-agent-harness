@@ -17,8 +17,10 @@ test-results/
 # PowerShell scripts (not harness code)
 *.ps1
 
-# Rolling memory (generated)
+# Rolling memory (generated) — the harness's own working files, not shipped
 /PROGRESS.md
+/PLAN.md
+/TASKS.md
 /PLAN.md.archive
 
 # System data (generated)
