@@ -40,3 +40,16 @@ agent/models-store.json
 agent/web-push.json
 agent/whisper-vtt.json
 agent/learning-demo/
+
+# Pi package install root (agent/npm/.gitignore already ignores everything but itself)
+agent/npm/
+
+# Web-fetch cache written by pi-web-access (regenerable, not harness code)
+agent/web-search-cache/
+
+# Not a Pi extension dir — holds local tool config only
+/extensions/
+
+# Local analysis artifacts
+/pi-integration-analysis.md
+/harness-cleanup-plan.md
