@@ -73,14 +73,24 @@ export interface SourcesConfig {
   retireWeeks: number;
 }
 
+/**
+ * Root holding sibling project checkouts, which is scanned for .agent/telemetry.jsonl files
+ * and .git directories. Override with the PI_DEV_ROOT environment variable.
+ *
+ * The default is the path that used to be hardcoded in both discoverers below, so leaving the
+ * variable unset changes nothing. It exists because the hardcoded value made this script
+ * unrunnable on any machine but this one, and because two separate copies of the same literal
+ * could silently disagree about where the projects live.
+ */
+const DEV_ROOT = process.env.PI_DEV_ROOT || "F:/Development";
+
 function discoverTelemetryPaths(): string[] {
   const paths = [
     path.join(process.env.HOME || "~", ".pi", ".agent", "telemetry.jsonl"),
   ];
-  const devDir = "F:/Development";
-  if (fs.existsSync(devDir)) {
-    for (const entry of fs.readdirSync(devDir)) {
-      const projectTelemetry = path.join(devDir, entry, ".agent", "telemetry.jsonl");
+  if (fs.existsSync(DEV_ROOT)) {
+    for (const entry of fs.readdirSync(DEV_ROOT)) {
+      const projectTelemetry = path.join(DEV_ROOT, entry, ".agent", "telemetry.jsonl");
       if (fs.existsSync(projectTelemetry)) {
         paths.push(projectTelemetry);
       }
@@ -91,10 +101,9 @@ function discoverTelemetryPaths(): string[] {
 
 function discoverGitRoots(): string[] {
   const roots = [path.join(process.env.HOME || "~", ".pi")];
-  const devDir = "F:/Development";
-  if (fs.existsSync(devDir)) {
-    for (const entry of fs.readdirSync(devDir)) {
-      const repoPath = path.join(devDir, entry);
+  if (fs.existsSync(DEV_ROOT)) {
+    for (const entry of fs.readdirSync(DEV_ROOT)) {
+      const repoPath = path.join(DEV_ROOT, entry);
       if (fs.existsSync(path.join(repoPath, ".git"))) {
         roots.push(repoPath);
       }
