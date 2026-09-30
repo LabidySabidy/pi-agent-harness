@@ -52,12 +52,22 @@ const DECLARED = [
   { file: "agent/extensions/reasoning-level/level.test.ts", min: 23 },
   { file: "agent/extensions/reasoning-level/wiring.test.ts", min: 11 },
   { file: "run-extension-tests.test.ts", min: 3 },
+  // The skill-frontmatter guard's own test, using the PI_HARNESS_SKILLS_DIR seam. Root-level, next
+  // to run-extension-tests.test.ts, and NOT in agent/extensions/ — a direct *.ts there breaks every
+  // pi session (GL-027), which the guard itself refuses.
+  { file: "guard-skills.test.ts", min: 12 },
 ];
 
-// This runner's own test invokes this runner. Without a stop it recurses forever, so the self-test
-// is dropped from the declaration while it is being run from inside a self-test.
-const SELF_TEST = "run-extension-tests.test.ts";
-const declared = process.env.GUARD_SELFTEST === "1" ? DECLARED.filter((d) => d.file !== SELF_TEST) : DECLARED;
+// This runner's own tests invoke this runner. Without a stop it recurses forever, so every test that
+// spawns the guard is dropped from the declaration while the guard is being driven by a self-test.
+//
+// ⚠ A SET, not a single name. This was `d.file !== SELF_TEST` and adding guard-skills.test.ts — which
+// also spawns the guard, once per fixture — produced a fork bomb: 340 node processes before the run
+// was killed. Contributing a second self-test meant contributing a second exclusion, and nothing
+// enforced that. Adding a file here that launches the guard now requires adding it to SELF_TESTS.
+const SELF_TESTS = new Set(["run-extension-tests.test.ts", "guard-skills.test.ts"]);
+const declared =
+  process.env.GUARD_SELFTEST === "1" ? DECLARED.filter((d) => !SELF_TESTS.has(d.file)) : DECLARED;
 
 const toPosix = (p) => p.split(sep).join("/");
 
@@ -194,7 +204,12 @@ for (const entry of readdirSync(extensionsDir, { withFileTypes: true })) {
 // It therefore refuses on the two conditions pi itself drops a loose `*.md` for — a frontmatter
 // PARSE failure and a missing/blank `description` — and, per GL-024, it WARNS on any frontmatter
 // shape it does not recognise rather than quietly accepting it.
-const SKILLS_DIR = join(ROOT, "agent", "skills");
+const SKILLS_DIR = process.env.PI_HARNESS_SKILLS_DIR || join(ROOT, "agent", "skills");
+// What gets PRINTED, and what appears in problem lines. It must name the directory actually scanned:
+// a test override that still printed "agent/skills/" would attribute a fixture failure to the real
+// tree. That is GL-024's shape — a label that lies about what was checked — and it is the same class
+// of defect this guard exists to catch, so the seam is not allowed to introduce it.
+const SKILLS_LABEL = process.env.PI_HARNESS_SKILLS_DIR ? SKILLS_DIR : "agent/skills";
 const skillWarnings = [];
 
 /** Strip a trailing ` # comment` from an unquoted scalar, then trim. */
@@ -243,7 +258,7 @@ function scalarProblem(plain) {
  * scalar) and strict about the two things that silently lose the skill.
  */
 function checkSkill(file) {
-  const rel = `agent/skills/${file}`;
+  const rel = `${SKILLS_LABEL}/${file}`;
   const problems = [];
   let source;
   try {
@@ -322,6 +337,18 @@ function checkSkill(file) {
   return { rel, problems };
 }
 
+// A seam that can silently DISABLE the guard is worse than no seam. `existsSync` below skips the
+// whole skill check when the directory is missing, so a typo in PI_HARNESS_SKILLS_DIR would turn the
+// guard off and still report a green run — GL-030's shape, an absent observable that cannot
+// distinguish "nothing to check" from "never checked". A misconfigured override is therefore a
+// refusal, not a warning.
+if (process.env.PI_HARNESS_SKILLS_DIR && !existsSync(SKILLS_DIR)) {
+  problems.push(
+    `PI_HARNESS_SKILLS_DIR points at ${SKILLS_DIR}, which does not exist. The skill check would be ` +
+      `skipped and the run would still look green. Unset it, or point it at a real directory.`,
+  );
+}
+
 if (existsSync(SKILLS_DIR)) {
   const skillFiles = readdirSync(SKILLS_DIR, { withFileTypes: true })
     .filter((e) => e.isFile() && e.name.endsWith(".md"))
@@ -332,7 +359,7 @@ if (existsSync(SKILLS_DIR)) {
     skillCount++;
     for (const p of checkSkill(file).problems) problems.push(p);
   }
-  console.log(`Skills checked: ${skillCount} file(s) in agent/skills/\n`);
+  console.log(`Skills checked: ${skillCount} file(s) in ${SKILLS_LABEL}/\n`);
 }
 
 const found = existsSync(extensionsDir) ? findTests(extensionsDir).map((f) => toPosix(relative(ROOT, f))) : [];
