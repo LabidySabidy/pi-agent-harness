@@ -8,7 +8,10 @@
           "api": "openai-completions",
           "baseUrl": "https://api.deepseek.com",
           "reasoning": true,
-          "input": ["text", "image"],
+          "input": [
+            "text",
+            "image"
+          ],
           "contextWindow": 1000000,
           "maxTokens": 384000,
           "cost": {
@@ -37,7 +40,10 @@
         "deepseek-flash": {
           "name": "DeepSeek V4.1 Flash",
           "reasoning": true,
-          "input": ["text", "image"],
+          "input": [
+            "text",
+            "image"
+          ],
           "contextWindow": 1000000,
           "maxTokens": 384000,
           "cost": {
@@ -64,7 +70,10 @@
         "deepseek-v4-flash": {
           "name": "DeepSeek V4.1 Flash (retired id, routed to V4.1 Flash)",
           "reasoning": true,
-          "input": ["text", "image"],
+          "input": [
+            "text",
+            "image"
+          ],
           "contextWindow": 1000000,
           "maxTokens": 384000,
           "cost": {
@@ -89,6 +98,49 @@
           }
         }
       }
+    },
+    "ollama": {
+      "baseUrl": "http://127.0.0.1:11434/v1",
+      "api": "openai-completions",
+      "apiKey": "ollama",
+      "models": [
+        {
+          "id": "gemma4:e4b",
+          "name": "Gemma 4 E4B (local)",
+          "api": "openai-completions",
+          "baseUrl": "http://127.0.0.1:11434/v1",
+          "reasoning": false,
+          "input": [
+            "text"
+          ],
+          "contextWindow": 131072,
+          "maxTokens": 8192,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0
+          }
+        },
+        {
+          "id": "gemma4:26b",
+          "name": "Gemma 4 26B (local)",
+          "api": "openai-completions",
+          "baseUrl": "http://127.0.0.1:11434/v1",
+          "reasoning": false,
+          "input": [
+            "text"
+          ],
+          "contextWindow": 131072,
+          "maxTokens": 8192,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0
+          }
+        }
+      ]
     }
   }
 }

@@ -56,6 +56,9 @@ const DECLARED = [
   // to run-extension-tests.test.ts, and NOT in agent/extensions/ — a direct *.ts there breaks every
   // pi session (GL-027), which the guard itself refuses.
   { file: "guard-skills.test.ts", min: 12 },
+  // The Ollama warm-up's own test: request shape (keep_alive must be in the BODY) and the silence
+  // policy (an absent Ollama must not warn or break a session).
+  { file: "agent/extensions/ollama-warmup/warmup.test.ts", min: 10 },
 ];
 
 // This runner's own tests invoke this runner. Without a stop it recurses forever, so every test that
