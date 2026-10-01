@@ -43,6 +43,16 @@ agent/web-push.json
 agent/whisper-vtt.json
 agent/learning-demo/
 
+# Session index written by pi-web's session-list-scanner.ts. Regenerated whenever pi-web runs, and a
+# RUNTIME LOG in the sense of LESSONS.md GL-019: ~1 MB of session metadata carrying the OS username
+# (1,131 hits) and home paths (71 "/Users/" + 1,006 ".pi" hits) — nothing secret, but not something to
+# publish. Found untracked and NOT ignored on 2026-09-30, one `git add -A` from a public repo, because
+# a NEW tool started writing into this directory. Its siblings agent/lesson-stats.json and
+# agent/web-push.json were already ignored; this one was simply missed.
+#
+# Delete the file freely — pi-web rebuilds it.
+agent/pi-web-session-index.json
+
 # Pi package install root (agent/npm/.gitignore already ignores everything but itself)
 agent/npm/
 
