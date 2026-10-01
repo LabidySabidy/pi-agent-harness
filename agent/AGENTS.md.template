@@ -54,6 +54,29 @@ Do not skip step 4. The brief context report tells me you've actually loaded the
 
 **Specs-to-Code is bad** — even with strong specs, the code itself stays reviewable. Don't sacrifice readability for terse output.
 
+<!-- Optional. Requires a subagent runtime (e.g. the `Agent` tool) and an installed profile
+     named `scout`. Delete this block if your setup has neither. -->
+**Delegate reading, don't do it — use the `scout` subagent.** When a task needs **three or more
+files read**, or when you only need to *understand* a file rather than change it, delegate to
+`scout` via the `Agent` tool instead of reading the files yourself. The scout runs on a cheap
+model in a disposable context, so those bytes never enter this session's window.
+
+Why this needs stating: subagent selection is a model judgement based on each profile's
+description, and a capable model will often just read the files itself rather than reach for the
+tool. If you have read-cache telemetry, check your own repeat-read rate before deciding this
+block is unnecessary — it is usually higher than it feels.
+
+How to invoke it:
+
+    Agent(subagent_type: "scout", prompt: "Summarize <path>. Also answer: <question>")
+
+Skip the scout when you must **edit** the file (it is read-only), when you need **one** small
+file, or when you need **exact line numbers** or **counts** — small local models tend to produce
+plausible but wrong citations, and an unreliable receipt is worse than none.
+
+Prefer the scout for reading many files, surveying an unfamiliar area, or digesting a large file
+whose full contents you will not otherwise use.
+
 ## When to grill before coding
 For non-trivial implementation work — anything more than a single-file mechanical change — interrogate before implementing. Surface assumptions, identify edge cases, confirm scope, then proceed.
 
